@@ -100,6 +100,21 @@ const expect = (name, pass, detail) => {
 const state = JSON.parse((await call('GET', '/api/weread/state')).body);
 expect('state returns configured flag', typeof state.configured === 'boolean', JSON.stringify(state));
 
+// Deep links: the panel asks the host to hand a `weread://` URL to the app so a highlight
+// opens on its own paragraph. Dry-run keeps the test from launching a real window.
+process.env.DSH_WEREAD_OPEN_DRY = '1';
+const pinned = JSON.parse(
+  (await call('POST', '/api/weread/open', { url: 'weread://bestbookmark?bookId=CB_x&chapterUid=12&rangeStart=30&rangeEnd=58' })).body,
+);
+expect('open accepts a weread bestbookmark link', pinned.ok === true && pinned.mode === 'dry-run', JSON.stringify(pinned));
+const readerLink = JSON.parse((await call('POST', '/api/weread/open', { url: 'https://weread.qq.com/web/reader/abc' })).body);
+expect('open accepts a reader link', readerLink.ok === true && readerLink.mode === 'dry-run', JSON.stringify(readerLink));
+const stranger = await call('POST', '/api/weread/open', { url: 'weread://evil?x=1' });
+expect('open rejects unknown weread hosts', stranger.status === 400, `${stranger.status} ${stranger.body.slice(0, 60)}`);
+const foreign = await call('POST', '/api/weread/open', { url: 'https://evil.example.com/x' });
+expect('open rejects foreign hosts', foreign.status === 400, `${foreign.status} ${foreign.body.slice(0, 60)}`);
+delete process.env.DSH_WEREAD_OPEN_DRY;
+
 if (live) {
   const shelf = JSON.parse((await call('GET', '/api/weread/shelf')).body);
   expect('shelf returns books', Array.isArray(shelf.books) && shelf.books.length > 0, `books ${shelf.books?.length}`);

@@ -20,9 +20,17 @@ const CHROME_CANDIDATES = [
   join(process.env.ProgramFiles ?? '', 'Microsoft/Edge/Application/msedge.exe'),
 ];
 
+/** The only `weread://` deep links we hand to the OS (the app itself validates the payload). */
+const WEREAD_APP_LINKS = new Set(['reading', 'bestbookmark']);
+
 /**
  * Open a WeRead link in a real browser window (app mode) so it is NOT framed.
  * Framing is what triggers WeRead's "no third-party plugin" block.
+ *
+ * Two accepted forms:
+ *  - https://weread.qq.com/... → Chrome app window (no address bar, no framing)
+ *  - weread://reading|bestbookmark?... → handed to the installed WeRead app, which can
+ *    jump straight to a chapter/paragraph the highlight came from.
  */
 async function openReader(rawUrl) {
   let url;
@@ -31,10 +39,26 @@ async function openReader(rawUrl) {
   } catch {
     return { error: { code: 'bad-url', message: '阅读链接无效' } };
   }
+
+  if (url.protocol === 'weread:') {
+    if (!WEREAD_APP_LINKS.has(url.hostname.toLowerCase())) {
+      return { error: { code: 'bad-url', message: '不支持的微信读书链接' } };
+    }
+    const target = url.toString();
+    if (process.env.DSH_WEREAD_OPEN_DRY === '1') return { ok: true, mode: 'dry-run', target };
+    try {
+      spawn('cmd', ['/c', 'start', '', target], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      return { ok: true, mode: 'we-read-app' };
+    } catch (error) {
+      return { error: { code: 'open-failed', message: error.message } };
+    }
+  }
+
   if (!/(^|\.)weread\.qq\.com$/.test(url.hostname)) {
     return { error: { code: 'bad-url', message: '只允许打开微信读书域名' } };
   }
   const target = url.toString();
+  if (process.env.DSH_WEREAD_OPEN_DRY === '1') return { ok: true, mode: 'dry-run', target };
   const exe = CHROME_CANDIDATES.find((candidate) => candidate && existsSync(candidate));
   if (!exe) {
     try {

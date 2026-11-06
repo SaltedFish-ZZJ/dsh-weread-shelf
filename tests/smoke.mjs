@@ -627,6 +627,20 @@ if (opened) {
   await snap('detail')
 }
 
+if (collect(tree).some((node) => node.props && typeof node.props.onClick === 'function' && textOf(node).includes('划线'))) {
+  await click('划线')
+  await snap('detail-highlights')
+  const highlightText = textOf(tree)
+  const highlightChecks = [
+    ['划线可跳去原文', highlightText.includes('去原文')],
+  ]
+  for (const [name, pass] of highlightChecks) {
+    console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+    if (!pass) errors.push({ path: 'detail', error: new Error(`${name}: ${highlightText.slice(0, 400)}`) })
+  }
+  await click('简介')
+}
+
 const readNow = collect(tree).find((node) => node.props && typeof node.props.onClick === 'function' && textOf(node).includes('打开阅读'))
 if (readNow) {
   try {

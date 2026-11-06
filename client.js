@@ -112,6 +112,8 @@ window.__ModuleLoader__.load({
         aiCompanion: 'AI 陪读',
         save: '存进知识库',
         saved: '已存进 Obsidian',
+        openOriginal: '去原文',
+        openedApp: '已在微信读书 App 里打开',
         notConfigured: '还没连上微信读书',
         notConfiguredHint: '在微信读书 App「我 → 设置 → 微信读书 Skill」拿 API Key，粘到这里。Key 只存在本机凭据库。',
         apiKey: '微信读书 API Key',
@@ -260,6 +262,8 @@ window.__ModuleLoader__.load({
         aiCompanion: 'AI companion',
         save: 'Save to vault',
         saved: 'Saved to Obsidian',
+        openOriginal: 'Open in app',
+        openedApp: 'Opened in the WeRead app',
         notConfigured: 'WeRead is not connected',
         notConfiguredHint: 'Grab an API key in the WeRead app (Me → Settings → WeRead Skill) and paste it here.',
         apiKey: 'WeRead API key',
@@ -803,6 +807,22 @@ window.__ModuleLoader__.load({
 
     const dayStamp = (date) =>
       `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+    /**
+     * Deep link that makes the WeRead app jump to one paragraph.
+     * Only usable when the highlight carries a chapter uid and a numeric range; the app
+     * opens the book itself when either is missing.
+     */
+    const appLink = (book, item) => {
+      const bookId = String((book && book.bookId) || '');
+      if (!bookId) return '';
+      const chapterUid = String((item && item.chapterUid) || '');
+      const range = /^(\d+)-(\d+)$/.exec(String((item && item.range) || ''));
+      if (/^\d+$/.test(chapterUid) && range && Number(range[2]) > Number(range[1])) {
+        return `weread://bestbookmark?bookId=${encodeURIComponent(bookId)}&chapterUid=${chapterUid}&rangeStart=${Number(range[1])}&rangeEnd=${Number(range[2])}`;
+      }
+      return `weread://reading?bId=${encodeURIComponent(bookId)}`;
+    };
 
     // ------------------------------------------------------------ primitives
     function Btn(props) {
@@ -2408,7 +2428,7 @@ const now = new Date();
 
     // ------------------------------------------------------------ detail
     function DetailView(props) {
-      const { seed, onBack, onToast, onAsk } = props;
+      const { seed, onBack, onToast, onAsk, onOpenOriginal } = props;
       const [state, setState] = useState({ loading: true, data: null, error: '' });
       const [tab, setTab] = useState('intro');
       const [saving, setSaving] = useState('');
@@ -2488,6 +2508,9 @@ const now = new Date();
                     saving === item.markText.slice(0, 20) ? '保存中…' : T.save,
                   ),
                   h('button', { type: 'button', style: S.link, onClick: () => onAsk(book, `我划了这段话：「${item.markText}」。它放在这本书里是什么意思？帮我拆解一下。`) }, '问屿'),
+                  onOpenOriginal
+                    ? h('button', { type: 'button', style: S.link, onClick: () => onOpenOriginal(book, item) }, T.openOriginal)
+                    : null,
                 ),
               ),
             )
@@ -2614,7 +2637,7 @@ const now = new Date();
 
     // ------------------------------------------------------------ companion desk
     function CompanionView(props) {
-      const { seed, onBack, onToast } = props;
+      const { seed, onBack, onToast, onOpenOriginal } = props;
       const [data, setData] = useState({ loading: true, info: {}, highlights: [], thoughts: [] });
       const [tab, setTab] = useState('highlights');
       const [messages, setMessages] = useState([]);
@@ -2796,6 +2819,9 @@ const now = new Date();
                                   }
                                 },
                               }, T.save)
+                            : null,
+                          tab === 'highlights' && onOpenOriginal
+                            ? h('button', { type: 'button', style: S.link, onClick: () => onOpenOriginal(book, item) }, T.openOriginal)
                             : null,
                         ),
                       ),
@@ -3086,6 +3112,25 @@ const now = new Date();
         [settings, showToast],
       );
 
+      const openOriginal = useCallback(
+        async (target, item) => {
+          const link = appLink(target, item);
+          if (!link) {
+            showToast(T.noReaderLink);
+            return;
+          }
+          try {
+            const result = await api('/open', { method: 'POST', body: { url: link } });
+            if (result?.error) throw new Error(result.error.message);
+            showToast(T.openedApp);
+          } catch (error) {
+            window.location.href = link;
+            showToast(error.message);
+          }
+        },
+        [showToast],
+      );
+
       const ask = useCallback((target, prompt) => {
         setAi({ mode: target ? 'book' : 'global', book: target });
         if (prompt) setSeeded(prompt);
@@ -3114,7 +3159,7 @@ const now = new Date();
 
       let main;
       if (split) {
-        main = h(CompanionView, { seed: split, onBack: () => setSplit(null), onToast: showToast });
+        main = h(CompanionView, { seed: split, onBack: () => setSplit(null), onToast: showToast, onOpenOriginal: openOriginal });
       } else if (book) {
         main = h(DetailView, {
           seed: book,
@@ -3122,6 +3167,7 @@ const now = new Date();
           onToast: showToast,
           onAsk: ask,
           onOpenReader: openReader,
+          onOpenOriginal: openOriginal,
         });
       } else if (tab === 'shelf') {
         main = h(ShelfView, { onOpen: openBook, onOpenReader: openReader, onAskShelf: () => ask(null), onToast: showToast });

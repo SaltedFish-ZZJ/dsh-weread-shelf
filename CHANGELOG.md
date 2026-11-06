@@ -2,6 +2,12 @@
 
 版本号跟着 `package.json` 走，每条对应一个 commit。
 
+## 0.9.6
+
+- 划线定位：详情页和陪读台的每条划线都多了一个「去原文」，点它把 `weread://bestbookmark?bookId=…&chapterUid=…&rangeStart=…&rangeEnd=…` 交给微信读书 App，直接跳到划的那一段；缺章节号或范围的旧划线退回打开整本。
+- `/api/weread/open` 现在接受两类链接：`weread://reading|bestbookmark`（交给 App）和 `https://weread.qq.com/…`（Chrome 独立窗口）；其他 scheme 和域名一律 400。
+- 测试：host 增加 4 条 `/open` 契约断言（含 `DSH_WEREAD_OPEN_DRY=1` 干跑，避免测试真去弹窗），smoke 增加「划线可跳去原文」。
+
 ## 0.9.5
 
 - 封面加载重做：不再一次甩出 81 个 `<img>`（这样偶发几张会永久留白），改成经过一个小队列（同时 6 张、失败重试 2 次）自己取字节再转成 object URL；封面没到位时先显示书名，不会出现空白纸块。
