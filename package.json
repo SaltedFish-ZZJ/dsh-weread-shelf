@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-weread-shelf",
-  "version": "0.9.8",
+  "version": "0.9.9",
   "private": true,
   "description": "书屿 · 微信读书书架：书架、独立窗口阅读、AI 陪读台、写入 Obsidian（DSH 左侧栏面板）",
   "keywords": [

@@ -328,7 +328,8 @@ window.__ModuleLoader__.load({
       border: 'rgba(203,192,171,.82)',
       border2: 'rgba(184,172,148,.78)',
       text: '#2B2621',
-      dim: '#7C7466',
+      ink: '#17130F',
+      dim: '#685F53',
       brand: BRAND,
       ok: '#3F6B4F',
       warn: '#A26A22',
@@ -620,8 +621,8 @@ window.__ModuleLoader__.load({
         marginBottom: 8,
         background: C.l1,
       },
-      quote: { fontFamily: SERIF, fontSize: 14, lineHeight: 1.8 },
-      quoteMeta: { fontSize: 11, color: C.dim, marginTop: 5, display: 'flex', gap: 10, alignItems: 'center' },
+      quote: { fontFamily: SERIF, fontSize: 14.5, lineHeight: 1.88, color: C.ink, fontWeight: 500 },
+      quoteMeta: { fontSize: 11.5, color: C.dim, marginTop: 5, display: 'flex', gap: 10, alignItems: 'center' },
       drawer: {
         position: 'absolute',
         top: 0,
@@ -1630,7 +1631,7 @@ const now = new Date();
           h('span', { style: { fontSize: 11, color: C.dim, letterSpacing: 1 } }, quote.fresh ? T.todayQuote : T.oldQuote),
           h(
             'span',
-            { style: { fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.7, flex: 1, minWidth: 220, overflow: 'hidden' } },
+            { style: { fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.7, color: C.ink, flex: 1, minWidth: 220, overflow: 'hidden' } },
             `「${quote.highlight.markText}」`,
           ),
           h(
@@ -2528,7 +2529,7 @@ const now = new Date();
           : h('div', { style: S.empty }, T.noChapters);
       } else {
         body = book.intro
-          ? h('div', { style: { ...S.quote, color: C.dim, whiteSpace: 'pre-wrap' } }, book.intro)
+          ? h('div', { style: { ...S.quote, fontSize: 14.5, lineHeight: 1.98, maxWidth: '74ch', whiteSpace: 'pre-wrap' } }, book.intro)
           : h('div', { style: S.empty }, T.noData);
       }
 
