@@ -1452,20 +1452,16 @@ window.__ModuleLoader__.load({
         setQuote({ ...quote, highlight });
       };
 
-      if (state.loading) return h('div', { style: S.empty }, T.loading);
-      if (state.error)
-        return h(
-          'div',
-          { style: S.empty },
-          `${T.error}：${state.error}`,
-          h('div', { style: { marginTop: 10 } }, h(Btn, { onClick: () => window.location.reload() }, T.retry)),
-        );
-
-      const now = new Date();
+const now = new Date();
       const todayStart = startOfDay(now.getTime());
       const days = (cal && cal.days) || {};
       const todayKey = dayStamp(now);
       const todaySeconds = Number(days[todayKey]) || 0;
+      let weekSeconds = 0;
+      for (let step = 0; step < 7; step += 1) {
+        const key = dayStamp(new Date(todayStart - step * DAY_MS + 43200000));
+        weekSeconds += Number(days[key]) || 0;
+      }
       let streak = 0;
       for (let step = 0; step < 400; step += 1) {
         const key = dayStamp(new Date(todayStart - step * DAY_MS + 43200000));
@@ -1473,134 +1469,96 @@ window.__ModuleLoader__.load({
         streak += 1;
       }
       const readToday = ((shelf && shelf.books) || []).filter((book) => (book.lastReadAt || 0) >= todayStart);
-      let weekSeconds = 0;
-      for (let step = 0; step < 7; step += 1) {
-        const key = dayStamp(new Date(todayStart - step * DAY_MS + 43200000));
-        weekSeconds += Number(days[key]) || 0;
-      }
-
-      const head = h(
+      const stat = (label, value) =>
+        h(
+          'span',
+          { style: { display: 'inline-flex', alignItems: 'baseline', gap: 5 } },
+          h('span', { style: { fontSize: 11, color: C.dim, letterSpacing: 0.8 } }, label),
+          h('span', { style: { fontFamily: SERIF, fontSize: 15, letterSpacing: 0.4 } }, value),
+        );
+      const bandTop = h(
         'div',
-        { style: { display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 } },
-        h('div', { style: { fontFamily: SERIF, fontSize: 19, letterSpacing: 1.2 } }, `${now.getMonth() + 1} 月 ${now.getDate()} 日`),
-        h('div', { style: { fontSize: 12, color: C.dim, letterSpacing: 0.8 } }, weekdayName(now)),
+        { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
+        h('span', { style: { fontFamily: SERIF, fontSize: 15, letterSpacing: 1 } }, `${now.getMonth() + 1} 月 ${now.getDate()} 日`),
+        h('span', { style: { fontSize: 11.5, color: C.dim, letterSpacing: 0.8 } }, weekdayName(now)),
+        h('span', { style: { flex: 1 } }),
+        stat(T.readToday, shortTime(todaySeconds)),
+        stat(T.weekRead, shortTime(weekSeconds)),
+        stat(T.streak, `${streak} ${T.daysUnit}`),
       );
-
-      const summary = h(
-        'div',
-        { style: { ...S.plate, display: 'flex', gap: 34, flexWrap: 'wrap', marginBottom: 22 } },
-        h(
-          'div',
-          null,
-          h('div', { style: { fontSize: 11, color: C.dim, letterSpacing: 1.2 } }, T.readToday),
-          h('div', { style: { fontFamily: SERIF, fontSize: 26, letterSpacing: 0.5, marginTop: 2 } }, shortTime(todaySeconds)),
-        ),
-        h(
-          'div',
-          null,
-          h('div', { style: { fontSize: 11, color: C.dim, letterSpacing: 1.2 } }, T.streak),
-          h('div', { style: { fontFamily: SERIF, fontSize: 26, letterSpacing: 0.5, marginTop: 2 } }, `${streak} ${T.daysUnit}`),
-        ),
-        h(
-          'div',
-          null,
-          h('div', { style: { fontSize: 11, color: C.dim, letterSpacing: 1.2 } }, T.weekRead),
-          h('div', { style: { fontFamily: SERIF, fontSize: 26, letterSpacing: 0.5, marginTop: 2 } }, shortTime(weekSeconds)),
-        ),
-      );
-
-      const booksBlock = readToday.length
+      const bandBooks = readToday.length
         ? h(
             'div',
-            { style: { marginBottom: 24 } },
-            h('div', { style: { ...S.sectionTitle, marginBottom: 12 } }, T.todayBooks),
-            readToday.slice(0, 6).map((book) =>
+            { style: { display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 } },
+            readToday.slice(0, 5).map((book) =>
               h(
                 'button',
                 {
                   type: 'button',
                   key: book.bookId,
                   style: {
-                    ...S.listItem,
                     display: 'flex',
-                    gap: 12,
                     alignItems: 'center',
-                    width: '100%',
-                    textAlign: 'left',
+                    gap: 8,
+                    padding: '5px 9px 5px 5px',
+                    background: 'rgba(255,253,248,.6)',
+                    border: `1px solid ${C.border}`,
+                    borderRadius: 2,
                     font: 'inherit',
                     color: 'inherit',
                     cursor: 'pointer',
+                    maxWidth: 260,
                   },
                   onClick: () => onOpen(book),
                 },
-                h(Cover, { book, compact: true, style: { width: 40, flex: 'none', boxShadow: 'none' } }),
-                h(
-                  'div',
-                  { style: { flex: 1, minWidth: 0 } },
-                  h('div', { style: S.bookTitle }, book.title),
-                  h('div', { style: { ...S.bookMeta, marginTop: 2 } }, `${book.author || '佚名'} · ${Math.round(book.progress || 0)}%`),
-                ),
+                h(Cover, { book, compact: true, style: { width: 26, flex: 'none', boxShadow: 'none' } }),
                 h(
                   'span',
-                  { style: { fontSize: 11.5, color: C.dim, letterSpacing: 0.6 } },
-                  book.noteCount ? `${book.noteCount} 划线` : '',
+                  { style: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } },
+                  book.title,
                 ),
               ),
             ),
           )
-        : h('div', { style: { ...S.empty, paddingTop: 0, marginBottom: 22 } }, T.noReadToday);
-
-      let quoteBlock = null;
+        : null;
+      let socks = null;
       if (quote && quote.highlight) {
-        quoteBlock = h(
+        socks = h(
           'div',
-          { style: S.plate },
+          { style: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 12, paddingTop: 11, borderTop: `1px solid ${C.border}` } },
+          h('span', { style: { fontSize: 11, color: C.dim, letterSpacing: 1 } }, quote.fresh ? T.todayQuote : T.oldQuote),
           h(
-            'div',
-            { style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 } },
-            h('div', { style: { ...S.sectionTitle, flex: 1 } }, quote.fresh ? T.todayQuote : T.oldQuote),
-            h('span', { style: { fontSize: 11, color: C.dim, letterSpacing: 0.6 } }, busy ? T.loading : ''),
-          ),
-          h('div', { style: { fontFamily: SERIF, fontSize: 15.5, lineHeight: 1.95 } }, `「${quote.highlight.markText}」`),
-          h(
-            'div',
-            { style: { marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
-            h('span', { style: { fontFamily: SERIF, fontSize: 13 } }, `《${quote.book.title}》`),
-            h('span', { style: { fontSize: 11.5, color: C.dim } }, [quote.book.author, quote.highlight.chapterName].filter(Boolean).join(' · ')),
+            'span',
+            { style: { fontFamily: SERIF, fontSize: 13.5, lineHeight: 1.7, flex: 1, minWidth: 220, overflow: 'hidden' } },
+            `「${quote.highlight.markText}」`,
           ),
           h(
-            'div',
-            { style: { marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' } },
-            h(Btn, { onClick: nextLine, disabled: busy }, T.anotherLine),
-            h(Btn, { onClick: () => pick(quote.book.bookId), disabled: busy }, T.anotherBook),
-            h(Btn, { onClick: () => onOpen(quote.book) }, T.openDetail),
-            quote.book.readerLink || quote.book.deepLink
-              ? h(Btn, { kind: 'primary', onClick: () => onOpenReader(quote.book) }, T.readNow)
-              : null,
+            'span',
+            { style: { fontSize: 11.5, color: C.dim, whiteSpace: 'nowrap' } },
+            `《${quote.book.title}》`,
           ),
+          h(Btn, { onClick: nextLine, disabled: busy, style: { height: 26, padding: '0 9px', fontSize: 11.5 } }, T.anotherLine),
+          h(Btn, { onClick: () => pick(quote.book.bookId), disabled: busy, style: { height: 26, padding: '0 9px', fontSize: 11.5 } }, T.anotherBook),
         );
       } else if (quote && !quote.highlight) {
-        quoteBlock = h(
+        socks = h(
           'div',
-          { style: S.plate },
-          h('div', { style: { ...S.sectionTitle, marginBottom: 8 } }, T.oldQuote),
-          h('div', { style: { fontSize: 12.5, color: C.dim } }, `${T.noHighlights}`, h('div', { style: { marginTop: 10 } }, h(Btn, { onClick: () => pick(quote.book.bookId) }, T.anotherBook))),
+          { style: { marginTop: 12, paddingTop: 11, borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.dim } },
+          T.noHighlights,
         );
       }
-
       return h(
         'div',
-        { style: S.body },
-        head,
-        summary,
-        booksBlock,
-        quoteBlock,
+        { style: { ...S.plate, marginBottom: 20 } },
+        bandTop,
+        bandBooks,
+        socks,
       );
     }
 
     // ------------------------------------------------------------ shelf
     function ShelfView(props) {
-      const { onOpen, onAskShelf, onToast } = props;
+      const { onOpen, onAskShelf, onToast, onOpenReader } = props;
       const [data, setData] = useState(null);
       const [state, setState] = useState({ loading: true, error: '' });
       const [filter, setFilter] = useState('all');
@@ -1787,7 +1745,8 @@ window.__ModuleLoader__.load({
               h('div', { style: { fontSize: 14, fontWeight: 600 } }, folder ? T.folderEmpty : T.empty),
               folder ? null : h('div', { style: { marginTop: 6, fontSize: 12.5 } }, T.emptyHint),
             );
-        content = h('div', null, crumbs, folderSection, bookGrid);
+        const band = !folder && !query.trim() ? h(TodayView, { onOpen, onOpenReader, onToast }) : null;
+        content = h('div', null, band, crumbs, folderSection, bookGrid);
       }
 
       return h(
@@ -2874,7 +2833,7 @@ window.__ModuleLoader__.load({
 
     // ------------------------------------------------------------ panel
     function Panel() {
-      const [tab, setTab] = useState('today');
+      const [tab, setTab] = useState('shelf');
       const [configured, setConfigured] = useState(null);
       const [book, setBook] = useState(null);
       const [ai, setAi] = useState(null);
@@ -2969,10 +2928,8 @@ window.__ModuleLoader__.load({
           onAsk: ask,
           onOpenReader: openReader,
         });
-      } else if (tab === 'today') {
-        main = h(TodayView, { onOpen: openBook, onOpenReader: openReader, onToast: showToast });
       } else if (tab === 'shelf') {
-        main = h(ShelfView, { onOpen: openBook, onAskShelf: () => ask(null), onToast: showToast });
+        main = h(ShelfView, { onOpen: openBook, onOpenReader: openReader, onAskShelf: () => ask(null), onToast: showToast });
       } else if (tab === 'notes') {
         main = h(NotesView, { onOpen: openBook });
       } else {
@@ -2996,7 +2953,6 @@ window.__ModuleLoader__.load({
             'div',
             { style: S.tabs },
             [
-              ['today', T.today],
               ['shelf', T.shelf],
               ['notes', T.notes],
               ['stats', T.stats],
