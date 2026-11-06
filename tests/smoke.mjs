@@ -385,7 +385,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (target.includes('/settings')) {
     const body = init.body ? JSON.parse(init.body) : {}
     if (String(init.method || 'GET').toUpperCase() === 'POST') return json({ settings: { autoSplit: true, folder: 'personal/书屿', ...body } })
-    return json({ settings: { autoSplit: true, folder: 'personal/书屿', vaultPath: 'D:/Obsidian_Work/myself_wiki' } })
+    return json({ settings: { autoSplit: true, folder: 'personal/书屿', vaultPath: 'D:/Obsidian/MyVault' } })
   }
   if (target.includes('/ai-key')) {
     if (String(init.method || 'GET').toUpperCase() === 'DELETE') return json({ ok: true })
