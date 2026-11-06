@@ -48,6 +48,27 @@ git clone https://github.com/SaltedFish-ZZJ/dsh-weread-shelf.git
 
 Key 存在 DSH 的 credentials 服务里，**不写进本仓库、也不进配置文件**。
 
+## 装进 DSH 插件市场（Discover）
+
+DSH 的插件市场**没有「上传」入口**，它是索引驱动的：谁提供一份索引 JSON，用户把这份索引的 URL 加进「发现」里，就能浏览和安装其中的插件。所以这个仓库自带一份 format-1 索引。
+
+- 索引文件：[`market/index.json`](market/index.json)，由 `npm run market:index` 生成（`git` 源 + 固定 commit）
+- 索引地址：`https://raw.githubusercontent.com/SaltedFish-ZZJ/dsh-weread-shelf/main/market/index.json`
+
+添加步骤：
+
+1. 设置 → 插件 → 发现（Discover）→ 索引源 → 添加
+2. 填上面那个 raw URL
+3. 之后在发现里搜「书屿」即可安装
+
+几个约束（来自 `@deepseek-ai/dsh-plugin-market-index` 的校验规则）：
+
+- 索引只接受 `http(s)` URL，且**不跟随重定向**——填最终地址；本机若解析不了 `raw.githubusercontent.com`，换 jsDelivr 或你自己的静态托管。
+- 相对图标按索引 URL 解析，必须落在 https 或与索引同源，所以 `market/icon.svg` 和索引放在一起。
+- 每个版本的 `source` 是 `git` + 40 位 commit，安装时执行 `git+https://github.com/…/dsh-weread-shelf.git#<commit>`，不会跟着 `main` 乱跑。
+- 发新版：`node scripts/market-index.mjs <commit>` 重新生成（`publishTimestamp` 用发版时间），需要保留旧版本时把它追加进 `versions` 数组。
+- 想被别人的聚合索引收录，把 `plugins[]` 里那一段原样交过去就行。
+
 ## 配置
 
 面板右上「设置」：
@@ -101,6 +122,8 @@ index.js         宿主半：/api/weread 路由（state key shelf book notes sta
 weread.js        官方网关客户端：业务参数平铺顶层 + skill_version，带 TTL 缓存
 client.js        面板半：window.__ModuleLoader__ 单文件（sidebar.panellist + main 两个槽位）
 cordis.patch.yml bundle 声明；package.json / locale / icon.svg
+scripts/         market-index.mjs（生成插件市场索引）
+market/          index.json + icon.svg：DSH「发现」用的索引，可整段复制给别人
 tests/           smoke.mjs（无头渲染 + 静态预览）、host.mjs（路由端到端）、
                  shots.mjs（真实数据截图）、credentials.mjs（读 Key 的小工具）
 ```

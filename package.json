@@ -25,13 +25,15 @@
     "url": "https://github.com/SaltedFish-ZZJ/dsh-weread-shelf/issues"
   },
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "dsh": ">=0.2.0-rc.2"
   },
   "scripts": {
     "check": "node --check index.js && node --check weread.js && node --check client.js",
     "test": "node tests/smoke.mjs && node tests/host.mjs",
     "test:live": "node tests/host.mjs --live",
-    "shots": "node tests/shots.mjs"
+    "shots": "node tests/shots.mjs",
+    "market:index": "node scripts/market-index.mjs"
   },
   "exports": {
     ".": "./index.js",
