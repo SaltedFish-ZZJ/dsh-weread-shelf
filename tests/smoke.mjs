@@ -625,6 +625,7 @@ if (readNow) {
     ['AI 来源可见', settingsText.includes('问屿的 AI')],
     ['跟随 DSH 模型可见', settingsText.includes('跟随 DSH 模型')],
     ['自定义接口可见', settingsText.includes('自定义接口')],
+    ['Obsidian 库根可填', settingsText.includes('Obsidian 库根')],
   ]
   for (const [name, pass] of settingsChecks) {
     console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)

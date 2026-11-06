@@ -1,5 +1,8 @@
 # 书屿 · WeRead Shelf for DSH
 
+[![ci](https://github.com/SaltedFish-ZZJ/dsh-weread-shelf/actions/workflows/ci.yml/badge.svg)](https://github.com/SaltedFish-ZZJ/dsh-weread-shelf/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-8B3A2E.svg)](LICENSE)
+
 **把微信读书搬进 DSH 的左侧栏**：书架 → 独立窗口阅读 → 回来陪读 AI → 划线想法一路写进 Obsidian。
 
 A WeRead (微信读书) shelf plugin for [DSH](https://deepseek.com): browse your shelf, open a book in a chrome-less reader window, ask an AI companion about it, and file highlights into your Obsidian vault.
@@ -28,7 +31,7 @@ A WeRead (微信读书) shelf plugin for [DSH](https://deepseek.com): browse you
 需要 DSH 桌面版（0.2.x）。插件是本地 bundle，装上就出现在左侧栏。
 
 ```bash
-git clone https://github.com/<you>/dsh-weread-shelf.git
+git clone https://github.com/SaltedFish-ZZJ/dsh-weread-shelf.git
 ```
 
 然后在 DSH 里安装这个目录（二选一）：
@@ -55,7 +58,7 @@ Key 存在 DSH 的 credentials 服务里，**不写进本仓库、也不进配�
 | 微信读书 API Key | 已连接 / 断开、替换 |
 | 问屿的 AI | 跟随 DSH 模型，或自定义 OpenAI 兼容接口 |
 
-库根默认 `D:\Obsidian_Work\myself_wiki`，写在宿主侧 `~/.dsh-weread-shelf/settings.json`（这一个是普通配置，不含密钥）。
+库根默认 `~/Obsidian`（没配过的话请自己在设置里改成你的库路径），写在宿主侧 `~/.dsh-weread-shelf/settings.json`——这是普通配置，不含密钥。
 
 ## AI 走哪个模型
 
@@ -71,7 +74,6 @@ Key 存在 DSH 的 credentials 服务里，**不写进本仓库、也不进配�
 - 除微信读书与你在设置里指定的 AI 接口外，插件不向任何第三方发请求。
 - 封面走 `/api/weread/cover` 代理（白名单：`*.qq.com` / `*.qpic.cn` / `*.weixin.qq.com` / `*.myqcloud.com`），只为绕开图片防盗链。
 - 写入 Obsidian 的内容只有你点「存进知识库 / 整本存进知识库 / 随手记」时才会发生。
-- 已知边界：`/api/weread/*` 目前注册在宿主的 webServer 上，本机回环使用，未走 connection 层的会话鉴权。
 
 ## 免责声明
 
@@ -98,11 +100,31 @@ index.js         宿主半：/api/weread 路由（state key shelf book notes sta
 weread.js        官方网关客户端：业务参数平铺顶层 + skill_version，带 TTL 缓存
 client.js        面板半：window.__ModuleLoader__ 单文件（sidebar.panellist + main 两个槽位）
 cordis.patch.yml bundle 声明；package.json / locale / icon.svg
-tests/           smoke.mjs（无头渲染 + 静态预览）、host.mjs（端到端）、shots.mjs（真实截图）、探针
+tests/           smoke.mjs（无头渲染 + 静态预览）、host.mjs（路由端到端）、
+                 shots.mjs（真实数据截图）、credentials.mjs（读 Key 的小工具）
 ```
+
+CI 跑的是两个离线测试（`node tests/smoke.mjs`、`node tests/host.mjs`），不需要 API Key；`--live` 与 `shots` 只在本地用。
+
+## 已知边界与路线图
+
+现在还不能做的：
+
+- **划线定位「去原文」**：微信读书有 `weread://bestbookmark` 深链，但需要确切的章节 + 字符区间；目前只做到打开整本。
+- **年度书墙、笔记日历·那年今日**：数据都在手边（`/shelf/sync` + `/user/notebooks`），只是还没画。
+- **本地增量缓存**：每次打开面板都会重新拉书架；书多的人会慢。
+- **路由鉴权**：`/api/weread/*` 直接注册在宿主 webServer 上（本机回环），未走 connection 层的会话校验。
+- **AI 读不到正文**：官方接口不给正文，所以陪读只能基于简介 / 目录 / 划线 / 想法；也还不能回读 Obsidian 里已有的笔记。
+- 单账号；没有安装包、没有崩溃日志。
+
+Pull request 都欢迎。
 
 ## 版本
 
+完整记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+- 0.9.4 — 开源收尾：CI、CHANGELOG、去掉机器相关路径
+- 0.9.3 — 开源就绪：MIT LICENSE、README、真实数据截图
 - 0.9.2 — 封面修复（放行腾讯 COS 域名）+ 书架分组（平铺 / 分类 / 进度 / 首字母）
 - 0.9.1 — 今日并入书架：改成书架顶部的「今日带」
 - 0.9.0 — 今日首屏：今天读到 / 连续阅读 / 今天翻开的书 / 旧句重逢

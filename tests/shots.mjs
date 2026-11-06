@@ -4,35 +4,20 @@
 //
 //   node tests/shots.mjs            → export + screenshot everything
 //   node tests/shots.mjs --export   → only write tests/pv/data.json + the HTML snapshots
-import { readFile, writeFile, mkdir } from 'node:fs/promises'
-import { homedir } from 'node:os'
+import { writeFile, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { EventEmitter } from 'node:events'
 import { spawn } from 'node:child_process'
 
 import { apply } from '../index.js'
+import { readWeReadKey } from './credentials.mjs'
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
 const PV = join(ROOT, 'tests', 'pv')
-const CHROME = 'C:/Program Files/Google/Chrome/Application/chrome.exe'
+const CHROME = process.env.CHROME_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe'
 
-function pickKey(yaml, id) {
-  const lines = yaml.split(/\r?\n/)
-  const start = lines.findIndex((line) => line.trim() === `${id}:`)
-  if (start < 0) return ''
-  const indent = lines[start].match(/^\s*/)[0].length
-  for (let index = start + 1; index < lines.length; index += 1) {
-    const line = lines[index]
-    if (!line.trim()) continue
-    if (line.match(/^\s*/)[0].length <= indent) break
-    const match = line.match(/^\s*key:\s*(\S.*)$/)
-    if (match) return match[1].trim().replace(/^["']|["']$/g, '')
-  }
-  return ''
-}
-
-const key = pickKey(await readFile('D:\\DSH-Home\\.credentials.yaml', 'utf8'), 'weread/api-key')
-if (!key) throw new Error('no weread api key')
+const key = await readWeReadKey()
+if (!key) throw new Error('no weread api key (set WEREAD_CREDENTIALS or DSH_HOME)')
 
 let route = null
 const ctx = {

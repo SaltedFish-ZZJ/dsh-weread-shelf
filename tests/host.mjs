@@ -1,43 +1,24 @@
 // Host-side end-to-end check: mounts the plugin against a stub Cordis context and drives the
 // real HTTP handler, so route wiring and JSON shapes are exercised without the DSH shell.
-//   node tests/host.mjs            → JSON contract only
-//   node tests/host.mjs --live     → also hits the WeRead gateway (needs a stored API key)
+//   node tests/host.mjs            → JSON contract only, offline
+//   node tests/host.mjs --live     → also hits the WeRead gateway (needs a stored API key;
+//                                    set WEREAD_CREDENTIALS or DSH_HOME if it is not in ~/.dsh)
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { createServer } from 'node:http';
 
 import { apply } from '../index.js';
+import { readWeReadKey } from './credentials.mjs';
 
 const live = process.argv.includes('--live');
 
-function pickKey(yaml, id) {
-  const lines = yaml.split(/\r?\n/);
-  const start = lines.findIndex((line) => line.trim() === `${id}:`);
-  if (start < 0) return '';
-  const indent = lines[start].match(/^\s*/)[0].length;
-  for (let index = start + 1; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!line.trim()) continue;
-    if (line.match(/^\s*/)[0].length <= indent) break;
-    const match = line.match(/^\s*key:\s*(\S.*)$/);
-    if (match) return match[1].trim().replace(/^["']|["']$/g, '');
-  }
-  return '';
-}
-
 let key = '';
 if (live) {
-  const path = join(homedir(), '.dsh-weread-shelf', 'settings.json');
-  try {
-    key = pickKey(await readFile('D:\\DSH-Home\\.credentials.yaml', 'utf8'), 'weread/api-key');
-  } catch {
-    key = '';
-  }
+  key = await readWeReadKey();
   if (!key) {
-    console.error('no api key found for --live');
+    console.error('no api key found for --live (set WEREAD_CREDENTIALS or DSH_HOME)');
     process.exit(1);
   }
 }

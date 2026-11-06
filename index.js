@@ -52,10 +52,6 @@ async function openReader(rawUrl) {
   }
 }
 
-function existsSyncSafe() {
-  return false;
-}
-
 import { createWeread, WereadError } from './weread.js';
 
 const KEY_ID = 'weread/api-key';
@@ -64,7 +60,7 @@ const PREFIX = '/api/weread';
 
 /** Where reading notes land inside the user's Obsidian vault. */
 const VAULT_DEFAULTS = {
-  vaultPath: 'D:\\Obsidian_Work\\myself_wiki',
+  vaultPath: join(homedir(), 'Obsidian'),
   folder: 'personal/书屿',
   autoSplit: true,
   aiMode: 'dsh',
