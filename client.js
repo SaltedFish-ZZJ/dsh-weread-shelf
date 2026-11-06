@@ -114,6 +114,7 @@ window.__ModuleLoader__.load({
         saved: '已存进 Obsidian',
         openOriginal: '去原文',
         openedApp: '已在微信读书 App 里打开',
+        noApp: '这台电脑没装微信读书桌面版，已用网页版打开',
         notConfigured: '还没连上微信读书',
         notConfiguredHint: '在微信读书 App「我 → 设置 → 微信读书 Skill」拿 API Key，粘到这里。Key 只存在本机凭据库。',
         apiKey: '微信读书 API Key',
@@ -264,6 +265,7 @@ window.__ModuleLoader__.load({
         saved: 'Saved to Obsidian',
         openOriginal: 'Open in app',
         openedApp: 'Opened in the WeRead app',
+        noApp: 'No WeRead desktop app here — opened the web reader instead',
         notConfigured: 'WeRead is not connected',
         notConfiguredHint: 'Grab an API key in the WeRead app (Me → Settings → WeRead Skill) and paste it here.',
         apiKey: 'WeRead API key',
@@ -3124,11 +3126,24 @@ const now = new Date();
             if (result?.error) throw new Error(result.error.message);
             showToast(T.openedApp);
           } catch (error) {
-            window.location.href = link;
+            if (error.code === 'no-app') {
+              const url = target.readerLink || target.deepLink;
+              if (!url) {
+                showToast(T.noReaderLink);
+                return;
+              }
+              try {
+                await api('/open', { method: 'POST', body: { url } });
+              } catch (openError) {
+                window.open(url, '_blank', 'noopener');
+              }
+              showToast(item && item.chapter ? `${T.noApp} · ${item.chapter}` : T.noApp);
+              return;
+            }
             showToast(error.message);
           }
         },
-        [showToast],
+        [showToast, openReader],
       );
 
       const ask = useCallback((target, prompt) => {

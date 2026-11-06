@@ -114,6 +114,12 @@ expect('open rejects unknown weread hosts', stranger.status === 400, `${stranger
 const foreign = await call('POST', '/api/weread/open', { url: 'https://evil.example.com/x' });
 expect('open rejects foreign hosts', foreign.status === 400, `${foreign.status} ${foreign.body.slice(0, 60)}`);
 delete process.env.DSH_WEREAD_OPEN_DRY;
+// Without a handler for the `weread:` protocol the host must say so instead of making the
+// shell pop a Store dialog; the panel then falls back to the web reader.
+process.env.DSH_WEREAD_PROTOCOL = '0';
+const noApp = await call('POST', '/api/weread/open', { url: 'weread://bestbookmark?bookId=CB_x&chapterUid=12&rangeStart=30&rangeEnd=58' });
+expect('open reports a missing we read app', noApp.status === 400 && JSON.parse(noApp.body).error?.code === 'no-app', `${noApp.status} ${noApp.body.slice(0, 60)}`);
+delete process.env.DSH_WEREAD_PROTOCOL;
 
 if (live) {
   const shelf = JSON.parse((await call('GET', '/api/weread/shelf')).body);

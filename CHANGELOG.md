@@ -2,6 +2,11 @@
 
 版本号跟着 `package.json` 走，每条对应一个 commit。
 
+## 0.9.7
+
+- 「去原文」在没有安装微信读书桌面版的电脑上不再弹 Windows 的「去应用商店找应用」对话框：宿主先查 `HKCR\weread` 协议是否注册，没有就回 `no-app`，面板改用网页版阅读器打开这本书，并在提示里带上这一划所在的章节名。
+- 测试：host 增加「没有 App 时回 no-app」断言（`DSH_WEREAD_PROTOCOL=0` 强制未注册，避免测试真的去弹窗）。
+
 ## 0.9.6
 
 - 划线定位：详情页和陪读台的每条划线都多了一个「去原文」，点它把 `weread://bestbookmark?bookId=…&chapterUid=…&rangeStart=…&rangeEnd=…` 交给微信读书 App，直接跳到划的那一段；缺章节号或范围的旧划线退回打开整本。

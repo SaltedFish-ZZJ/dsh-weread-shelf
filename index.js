@@ -24,6 +24,22 @@ const CHROME_CANDIDATES = [
 const WEREAD_APP_LINKS = new Set(['reading', 'bestbookmark']);
 
 /**
+ * Whether this machine has something registered for the `weread:` protocol.
+ * WeRead is a mobile app; on a desktop with only the web version there is no handler, and
+ * handing the link to the shell pops a "look for an app in the Store" dialog — so we probe
+ * first and let the panel fall back to the web reader.
+ */
+const protocolRegistered = async () => {
+  if (process.env.DSH_WEREAD_PROTOCOL === '1') return true;
+  if (process.env.DSH_WEREAD_PROTOCOL === '0') return false;
+  return new Promise((resolve) => {
+    const child = spawn('reg', ['query', 'HKCR\\weread'], { windowsHide: true, stdio: 'ignore' });
+    child.on('error', () => resolve(false));
+    child.on('close', (code) => resolve(code === 0));
+  });
+};
+
+/**
  * Open a WeRead link in a real browser window (app mode) so it is NOT framed.
  * Framing is what triggers WeRead's "no third-party plugin" block.
  *
@@ -46,6 +62,9 @@ async function openReader(rawUrl) {
     }
     const target = url.toString();
     if (process.env.DSH_WEREAD_OPEN_DRY === '1') return { ok: true, mode: 'dry-run', target };
+    if (!(await protocolRegistered())) {
+      return { error: { code: 'no-app', message: '这台电脑没有可打开微信读书链接的应用' } };
+    }
     try {
       spawn('cmd', ['/c', 'start', '', target], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
       return { ok: true, mode: 'we-read-app' };
