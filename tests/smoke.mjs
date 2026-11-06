@@ -318,6 +318,16 @@ const statsPayload = {
 globalThis.fetch = async (url, init = {}) => {
   const target = String(url)
   const live = realData || {}
+  if (target.includes('/cover')) {
+    // 1×1 png: the client fetches covers through the proxy and turns the bytes into an object URL
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+    return {
+      ok: true,
+      status: 200,
+      blob: async () => new Blob([png], { type: 'image/png' }),
+      json: async () => ({}),
+    }
+  }
   if (target.includes('/state')) return json({ configured: true })
   if (target.includes('/shelf')) {
     const payload = live.shelf ?? shelfPayload
@@ -525,6 +535,21 @@ for (const [name, pass] of todayChecks) {
   if (!pass) errors.push({ path: 'today', error: new Error(`${name}: ${todayText.slice(0, 600)}`) })
 }
 await snap('home')
+await new Promise((resolve) => setTimeout(resolve, 20))
+await settle(tree)
+const images = collect(tree).filter((node) => node.type === 'img')
+const prefix = realData ? 'data:' : 'blob:'
+const decoded = images.filter((node) => typeof node.props?.src === 'string' && node.props.src.startsWith(prefix))
+const coverCheck = [
+  realData
+    ? `封面已内联为 data URI（${decoded.length}/${images.length}）`
+    : `封面经代理解码成 blob（${decoded.length}/${images.length}）`,
+  decoded.length > 0,
+]
+for (const [name, pass] of [coverCheck]) {
+  console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+  if (!pass) errors.push({ path: 'cover', error: new Error(`${name}: images=${images.length}`) })
+}
 await click('笔记')
 await snap('notes')
 await click('统计')

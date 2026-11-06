@@ -123,6 +123,7 @@ Pull request 都欢迎。
 
 完整记录见 [CHANGELOG.md](CHANGELOG.md)。
 
+- 0.9.5 — 封面加载重做：小队列取图（6 并发、失败重试）转 object URL，不再一次甩 81 个 `<img>`
 - 0.9.4 — 开源收尾：CI、CHANGELOG、去掉机器相关路径
 - 0.9.3 — 开源就绪：MIT LICENSE、README、真实数据截图
 - 0.9.2 — 封面修复（放行腾讯 COS 域名）+ 书架分组（平铺 / 分类 / 进度 / 首字母）

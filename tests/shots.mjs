@@ -145,8 +145,8 @@ console.log('· progress')
 const ids = shelf.books.filter((item) => item.progress == null).map((item) => item.bookId)
 const progress = ids.length ? await getJson(`/api/weread/progress?ids=${ids.slice(0, 60).map(encodeURIComponent).join(',')}`) : { items: {} }
 
-// Inline covers (only what can show up on screen, keeps the HTML manageable).
-const embedded = shelf.books.slice(0, 24)
+// Inline every cover so the static preview is faithful (no network while rendering).
+const embedded = shelf.books
 for (const item of embedded) item.cover = await coverUri(item.cover)
 if (book.info?.cover) book.info.cover = await coverUri(book.info.cover)
 for (const item of stats.longest || []) {

@@ -513,7 +513,7 @@ window.__ModuleLoader__.load({
         borderRadius: 2,
         boxShadow: '0 1px 3px rgba(43,38,33,.07)',
       },
-      coverImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
+      coverImg: { position: 'relative', width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
       coverFallback: {
         width: '100%',
         height: '100%',
@@ -810,28 +810,91 @@ window.__ModuleLoader__.load({
       return h('button', { type: 'button', style: { ...S[kind], ...style }, ...rest }, children);
     }
 
+    // ------------------------------------------------------------ cover loading
+    // Covers come through the host proxy (upstream needs our referer). Firing 84 <img> tags at
+    // once left a few frames permanently blank, so fetch them through a small queue instead:
+    // six in flight, two retries, bytes kept as object URLs.
+    const coverCache = new Map();
+    const coverQueue = [];
+    let coverActive = 0;
+
+    const pumpCovers = () => {
+      while (coverActive < 6 && coverQueue.length) {
+        const job = coverQueue.shift();
+        coverActive += 1;
+        job().finally(() => {
+          coverActive -= 1;
+          pumpCovers();
+        });
+      }
+    };
+
+    const fetchCover = (url) =>
+      new Promise((resolve) => {
+        coverQueue.push(async () => {
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            try {
+              const response = await fetch(attempt ? `${url}&retry=${attempt}` : url);
+              if (!response.ok) throw new Error(`cover ${response.status}`);
+              const blob = await response.blob();
+              const objectUrl = URL.createObjectURL(blob);
+              coverCache.set(url, objectUrl);
+              resolve(objectUrl);
+              return;
+            } catch {
+              // the proxy is the only source here, so a miss is almost always transient
+            }
+          }
+          coverCache.set(url, '');
+          resolve('');
+        });
+        pumpCovers();
+      });
+
     function Cover(props) {
       const { book, style, compact } = props;
-      const [broken, setBroken] = useState(false);
-      const src = coverUrl(book && book.cover);
+      const url = coverUrl(book && book.cover);
+      const inline = url && /^data:/i.test(url) ? url : '';
+      const [shot, setShot] = useState(() => inline || (url && coverCache.get(url)) || '');
       useEffect(() => {
-        setBroken(false);
-      }, [src]);
+        if (!url) {
+          setShot('');
+          return undefined;
+        }
+        if (inline) {
+          setShot(inline);
+          return undefined;
+        }
+        const cached = coverCache.get(url);
+        if (cached !== undefined) {
+          setShot(cached);
+          return undefined;
+        }
+        let alive = true;
+        setShot('');
+        fetchCover(url).then((objectUrl) => {
+          if (alive && objectUrl) setShot(objectUrl);
+        });
+        return () => {
+          alive = false;
+        };
+      }, [url, inline]);
+      const title = book && book.title ? book.title.slice(0, 16) : '';
       return h(
         'div',
         { style: { ...S.coverBox, ...style } },
-        src && !broken
+        shot
           ? h('img', {
-              src,
+              src: shot,
               alt: '',
-              loading: 'lazy',
+              decoding: 'async',
               referrerPolicy: 'no-referrer',
               style: S.coverImg,
-              onError: () => setBroken(true),
+              onError: () => setShot(''),
             })
-          : compact
+          : compact || !title
             ? null
-            : h('div', { style: S.coverFallback }, h('span', { style: S.coverFallbackText }, (book && book.title ? book.title.slice(0, 16) : '?'))),
+            : h('div', { style: S.coverFallback }, h('span', { style: S.coverFallbackText }, title)),
         book && book.finished && !compact ? h('span', { style: S.badge }, T.finishedBadge) : null,
       );
     }

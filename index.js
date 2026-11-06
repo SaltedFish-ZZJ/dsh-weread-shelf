@@ -666,14 +666,27 @@ export function apply(ctx, config = {}) {
       return;
     }
     try {
-      const upstream = await fetch(parsed, {
-        headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://weread.qq.com/' },
-        signal: AbortSignal.timeout(15000),
-      });
-      if (!upstream.ok) throw new Error(`cover ${upstream.status}`);
-      const buffer = Buffer.from(await upstream.arrayBuffer());
+      let buffer = null;
+      let type = 'image/jpeg';
+      let lastError = null;
+      // The CDN occasionally drops one request in a burst of refreshes; one short retry is enough.
+      for (let attempt = 0; attempt < 2 && !buffer; attempt += 1) {
+        try {
+          if (attempt) await new Promise((resolve) => setTimeout(resolve, 150));
+          const upstream = await fetch(parsed, {
+            headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://weread.qq.com/' },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!upstream.ok) throw new Error(`cover ${upstream.status}`);
+          buffer = Buffer.from(await upstream.arrayBuffer());
+          type = upstream.headers.get('content-type') ?? 'image/jpeg';
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      if (!buffer) throw lastError ?? new Error('cover unavailable');
       res.writeHead(200, {
-        'content-type': upstream.headers.get('content-type') ?? 'image/jpeg',
+        'content-type': type,
         'cache-control': 'public, max-age=86400',
         'content-length': buffer.length,
       });
