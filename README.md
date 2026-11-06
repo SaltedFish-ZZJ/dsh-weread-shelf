@@ -2,6 +2,7 @@
 
 [![ci](https://github.com/SaltedFish-ZZJ/dsh-weread-shelf/actions/workflows/ci.yml/badge.svg)](https://github.com/SaltedFish-ZZJ/dsh-weread-shelf/actions/workflows/ci.yml)
 [![license: MIT](https://img.shields.io/badge/license-MIT-8B3A2E.svg)](LICENSE)
+[![](https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white)](https://github.com/deepseek-ai/deepseek-harness)
 
 **把微信读书搬进 DSH 的左侧栏**：书架 → 独立窗口阅读 → 回来陪读 AI → 划线想法一路写进 Obsidian。
 
