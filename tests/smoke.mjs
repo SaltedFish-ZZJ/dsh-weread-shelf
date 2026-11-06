@@ -632,7 +632,6 @@ if (collect(tree).some((node) => node.props && typeof node.props.onClick === 'fu
   await snap('detail-highlights')
   const highlightText = textOf(tree)
   const highlightChecks = [
-    ['划线可跳去原文', highlightText.includes('去原文')],
   ]
   for (const [name, pass] of highlightChecks) {
     console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)

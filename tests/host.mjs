@@ -100,26 +100,16 @@ const expect = (name, pass, detail) => {
 const state = JSON.parse((await call('GET', '/api/weread/state')).body);
 expect('state returns configured flag', typeof state.configured === 'boolean', JSON.stringify(state));
 
-// Deep links: the panel asks the host to hand a `weread://` URL to the app so a highlight
-// opens on its own paragraph. Dry-run keeps the test from launching a real window.
+// Only https WeRead links are opened, in a Chrome app window. Dry-run keeps the test from
+// launching a real window.
 process.env.DSH_WEREAD_OPEN_DRY = '1';
-const pinned = JSON.parse(
-  (await call('POST', '/api/weread/open', { url: 'weread://bestbookmark?bookId=CB_x&chapterUid=12&rangeStart=30&rangeEnd=58' })).body,
-);
-expect('open accepts a weread bestbookmark link', pinned.ok === true && pinned.mode === 'dry-run', JSON.stringify(pinned));
 const readerLink = JSON.parse((await call('POST', '/api/weread/open', { url: 'https://weread.qq.com/web/reader/abc' })).body);
 expect('open accepts a reader link', readerLink.ok === true && readerLink.mode === 'dry-run', JSON.stringify(readerLink));
-const stranger = await call('POST', '/api/weread/open', { url: 'weread://evil?x=1' });
-expect('open rejects unknown weread hosts', stranger.status === 400, `${stranger.status} ${stranger.body.slice(0, 60)}`);
+const appLink = await call('POST', '/api/weread/open', { url: 'weread://bestbookmark?bookId=CB_x&chapterUid=12&rangeStart=30&rangeEnd=58' });
+expect('open rejects app deep links', appLink.status === 400, `${appLink.status} ${appLink.body.slice(0, 60)}`);
 const foreign = await call('POST', '/api/weread/open', { url: 'https://evil.example.com/x' });
 expect('open rejects foreign hosts', foreign.status === 400, `${foreign.status} ${foreign.body.slice(0, 60)}`);
 delete process.env.DSH_WEREAD_OPEN_DRY;
-// Without a handler for the `weread:` protocol the host must say so instead of making the
-// shell pop a Store dialog; the panel then falls back to the web reader.
-process.env.DSH_WEREAD_PROTOCOL = '0';
-const noApp = await call('POST', '/api/weread/open', { url: 'weread://bestbookmark?bookId=CB_x&chapterUid=12&rangeStart=30&rangeEnd=58' });
-expect('open reports a missing we read app', noApp.status === 400 && JSON.parse(noApp.body).error?.code === 'no-app', `${noApp.status} ${noApp.body.slice(0, 60)}`);
-delete process.env.DSH_WEREAD_PROTOCOL;
 
 if (live) {
   const shelf = JSON.parse((await call('GET', '/api/weread/shelf')).body);
