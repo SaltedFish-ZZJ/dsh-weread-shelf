@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
+import { createServer } from 'node:http';
 
 import { apply } from '../index.js';
 
@@ -161,6 +162,49 @@ if (live) {
   } finally {
     await call('POST', '/api/weread/settings', { vaultPath: original.vaultPath, folder: original.folder });
     await rm(scratch, { recursive: true, force: true });
+  }
+}
+
+if (live) {
+  // Ask-Isle can also speak to any OpenAI-compatible endpoint; prove it against a local fake
+  // stream so the wire format (payload + SSE chunks) is covered without spending tokens.
+  let received = null;
+  const server = createServer((req, res) => {
+    if (String(req.url ?? '').endsWith('/models')) {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{}');
+      return;
+    }
+    let payload = '';
+    req.on('data', (chunk) => {
+      payload += chunk;
+    });
+    req.on('end', () => {
+      received = JSON.parse(payload || '{}');
+      res.writeHead(200, { 'content-type': 'text/event-stream' });
+      res.write('data: {"choices":[{"delta":{"content":"第一段"}}]}\n\n');
+      res.write('data: {"choices":[{"delta":{"content":"，第二段"}}]}\n\n');
+      res.write('data: [DONE]\n\n');
+      res.end();
+    });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/v1`;
+  const originalAi = JSON.parse((await call('GET', '/api/weread/ai')).body);
+  try {
+    await call('POST', '/api/weread/ai-key', { key: 'local-test-key', baseUrl: base });
+    await call('POST', '/api/weread/ai', { mode: 'custom', baseUrl: base, model: 'test-model' });
+    const state = JSON.parse((await call('GET', '/api/weread/ai')).body);
+    expect('ai route reports the custom endpoint', state.mode === 'custom' && Boolean(state.baseUrl), state.baseUrl);
+
+    const firstBook = JSON.parse((await call('GET', '/api/weread/shelf')).body).books?.[0];
+    const asked = await call('POST', '/api/weread/ask', { question: '你好', mode: 'book', bookId: firstBook?.bookId });
+    expect('ask streams from a custom endpoint', asked.body.includes('第一段') && asked.body.includes('第二段'), asked.body.trim().slice(0, 80));
+    expect('custom endpoint receives an openai payload', Boolean(received) && received.model === 'test-model' && Array.isArray(received.messages), received?.model || 'no payload');
+    expect('custom endpoint gets the reading-partner prompt', Boolean(received?.messages?.[0]?.content?.startsWith('你是「书屿」')), 'system first');
+  } finally {
+    await call('POST', '/api/weread/ai', { mode: originalAi.mode || 'dsh', baseUrl: originalAi.baseUrl || '', model: originalAi.model || '' });
+    server.close();
   }
 }
 

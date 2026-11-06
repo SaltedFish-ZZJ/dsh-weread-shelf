@@ -358,6 +358,11 @@ globalThis.fetch = async (url, init = {}) => {
     if (String(init.method || 'GET').toUpperCase() === 'POST') return json({ settings: { autoSplit: true, folder: 'personal/书屿', ...body } })
     return json({ settings: { autoSplit: true, folder: 'personal/书屿', vaultPath: 'D:/Obsidian_Work/myself_wiki' } })
   }
+  if (target.includes('/ai-key')) {
+    if (String(init.method || 'GET').toUpperCase() === 'DELETE') return json({ ok: true })
+    return json({ ok: true, verified: true })
+  }
+  if (target.includes('/ai')) return json({ mode: 'dsh', baseUrl: '', model: '', keyConfigured: false })
   if (target.includes('/open')) return json({ ok: true, mode: 'app-window' })
   if (target.includes('/ask')) return json({ ok: true })
   if (target.includes('/save')) return json({ ok: true })
@@ -441,7 +446,11 @@ report('shelf tab')
 
 async function click(label) {
   const nodes = collect(tree)
-  const target = nodes.find((node) => node.props && typeof node.props.onClick === 'function' && textOf(node).includes(label))
+  const candidates = nodes.filter((node) => node.props && typeof node.props.onClick === 'function' && textOf(node).includes(label))
+  // Prefer the innermost control: an outer wrapper (the sheet mask, a card) contains the same text
+  // but its onClick closes or navigates instead of switching the thing we mean to switch.
+  candidates.sort((left, right) => textOf(left).length - textOf(right).length)
+  const target = candidates[0]
   if (!target) {
     console.log(`(no clickable "${label}")`)
     return false
@@ -523,6 +532,32 @@ if (readNow) {
   await snap('companion')
   await click('设置')
   await snap('settings')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  tree = await settle(tree)
+  const settingsText = textOf(tree)
+  const settingsChecks = [
+    ['AI 来源可见', settingsText.includes('问屿的 AI')],
+    ['跟随 DSH 模型可见', settingsText.includes('跟随 DSH 模型')],
+    ['自定义接口可见', settingsText.includes('自定义接口')],
+  ]
+  for (const [name, pass] of settingsChecks) {
+    console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+    if (!pass) errors.push({ path: 'settings', error: new Error(name) })
+  }
+  await click('自定义接口')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  tree = await settle(tree)
+  const customText = textOf(tree)
+  const customChecks = [
+    ['接口地址输入可见', customText.includes('接口地址')],
+    ['模型名输入可见', customText.includes('模型名')],
+    ['接口 Key 段可见', customText.includes('接口 Key')],
+  ]
+  for (const [name, pass] of customChecks) {
+    console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+    if (!pass) errors.push({ path: 'settings-custom', error: new Error(name) })
+  }
+  await snap('settings-custom')
 } else {
   errors.push({ path: 'click:readNow', error: new Error('没有找到「打开阅读」按钮') })
 }

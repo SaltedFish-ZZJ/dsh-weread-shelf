@@ -39,7 +39,9 @@ Key 存在 DSH 的 credentials 服务里，落盘位置由 DSH 决定，不会�
 
 ## AI 走哪个模型
 
-宿主 `llm` 服务 + `agentDefaultModel.currentSelection()`，也就是 **DSH 里当前选中的模型**。消耗的是它的 token，与微信读书无关（`wrk-` Key 只取数据）。
+默认走宿主 `llm` 服务 + `agentDefaultModel.currentSelection()`，也就是 **DSH 里当前选中的模型**。消耗的是它的 token，与微信读书无关（`wrk-` Key 只取数据）。
+
+也可以在「设置 → 问屿的 AI」里切到**自定义接口**：填一个 OpenAI 兼容的 base URL（如 `https://api.deepseek.com/v1`）、模型名和一个接口 Key。宿主会直接 `POST <base>/chat/completions` 并按 SSE 解析，此时消耗的是那家接口的 token，DSH 的模型不参与。接口 Key 存在 DSH 的 credentials 服务里（`weread/ai-key`），不落配置文件。
 
 单书提问的上下文约 3.5k 字符（简介 + 目录 + 前 60 条划线 + 前 30 条想法），输出上限 1200 token，历史只带最近 8 轮。
 

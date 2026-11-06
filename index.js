@@ -59,6 +59,7 @@ function existsSyncSafe() {
 import { createWeread, WereadError } from './weread.js';
 
 const KEY_ID = 'weread/api-key';
+const AI_KEY_ID = 'weread/ai-key';
 const PREFIX = '/api/weread';
 
 /** Where reading notes land inside the user's Obsidian vault. */
@@ -66,6 +67,9 @@ const VAULT_DEFAULTS = {
   vaultPath: 'D:\\Obsidian_Work\\myself_wiki',
   folder: 'personal/书屿',
   autoSplit: true,
+  aiMode: 'dsh',
+  aiBaseUrl: '',
+  aiModel: '',
 };
 
 /** User-tunable settings, persisted outside the package (the package dir can be read-only). */
@@ -304,6 +308,17 @@ export function apply(ctx, config = {}) {
     return `${SYSTEM_COMMON}\n\n${await shelfContext()}\n\n他问的是整座书架的事：可以帮他找书、排优先级、串联不同书里的观点、推荐下一本。`;
   };
 
+  const readAiKey = async () => {
+    const record = await ctx.credentials.readRecord(AI_KEY_ID);
+    return typeof record?.key === 'string' && record.key ? record.key : '';
+  };
+
+  /** Any OpenAI-compatible base URL resolves to its chat endpoint. */
+  const chatEndpoint = (base) => {
+    const trimmed = String(base || '').trim().replace(/\/+$/, '');
+    return /\/chat\/completions$/.test(trimmed) ? trimmed : `${trimmed}/chat/completions`;
+  };
+
   const streamAnswer = async (req, res, body) => {
     const question = typeof body.question === 'string' ? body.question.trim() : '';
     if (!question) {
@@ -312,9 +327,24 @@ export function apply(ctx, config = {}) {
       return;
     }
 
-    const llm = ctx.get('llm');
-    const selection = ctx.get('agentDefaultModel')?.currentSelection?.();
-    if (!llm || !selection?.provider || !selection?.model) {
+    const customBase = String(settings.aiBaseUrl ?? '').trim();
+    const customModel = String(settings.aiModel ?? '').trim();
+    const useCustom = settings.aiMode === 'custom';
+    if (useCustom && (!customBase || !customModel)) {
+      res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: { code: 'no-ai-config', message: '先在设置里填好自定义接口的地址和模型名' } }));
+      return;
+    }
+    const customKey = useCustom ? await readAiKey() : '';
+    if (useCustom && !customKey) {
+      res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: { code: 'no-ai-key', message: '自定义接口还差一个 API Key' } }));
+      return;
+    }
+
+    const llm = useCustom ? null : ctx.get('llm');
+    const selection = useCustom ? null : ctx.get('agentDefaultModel')?.currentSelection?.();
+    if (!useCustom && (!llm || !selection?.provider || !selection?.model)) {
       res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: { code: 'no-model', message: '这个 DSH 里还没有可用的模型配置' } }));
       return;
@@ -344,6 +374,25 @@ export function apply(ctx, config = {}) {
             }))
         : [];
       const messages = [...history, { role: 'user', content: [{ type: 'text', text: question }] }];
+
+      if (useCustom) {
+        await streamCustom({
+          endpoint: chatEndpoint(customBase),
+          key: customKey,
+          model: customModel,
+          system,
+          messages: messages.map((message) => ({
+            role: message.role,
+            content: Array.isArray(message.content)
+              ? message.content.map((part) => part.text ?? '').join('')
+              : String(message.content ?? ''),
+          })),
+          signal: controller.signal,
+          send,
+        });
+        if (!controller.signal.aborted) send({ done: true });
+        return;
+      }
 
       for await (const chunk of llm.stream({
         provider: selection.provider,
@@ -637,18 +686,126 @@ export function apply(ctx, config = {}) {
     }
   };
 
+  /** Streams tokens from any OpenAI-compatible `/chat/completions` endpoint. */
+  const streamCustom = async (opts) => {
+    const { endpoint, key, model, system, messages, signal, send } = opts;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        stream: true,
+        max_tokens: 1200,
+        messages: [{ role: 'system', content: system }, ...messages],
+      }),
+      signal,
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      send({ error: `接口返回 ${response.status}${detail ? `：${clamp(detail, 280)}` : ''}` });
+      return;
+    }
+    if (!response.body) {
+      send({ error: '接口没有返回内容' });
+      return;
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let stopped = false;
+    while (!stopped) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let cut = buffer.indexOf('\n');
+      while (cut >= 0) {
+        const line = buffer.slice(0, cut).trim();
+        buffer = buffer.slice(cut + 1);
+        cut = buffer.indexOf('\n');
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (!data) continue;
+        if (data === '[DONE]') {
+          stopped = true;
+          break;
+        }
+        let parsed;
+        try {
+          parsed = JSON.parse(data);
+        } catch {
+          continue;
+        }
+        const delta = parsed?.choices?.[0]?.delta?.content ?? parsed?.choices?.[0]?.message?.content;
+        if (typeof delta === 'string' && delta) send({ text: delta });
+        const upstreamError = parsed?.error?.message;
+        if (upstreamError) {
+          send({ error: String(upstreamError) });
+          stopped = true;
+          break;
+        }
+      }
+    }
+    try {
+      await reader.cancel();
+    } catch {
+      /* already closed */
+    }
+  };
+
   const routes = {
     'GET state': async () => {
       const info = await ctx.credentials.describeRecord(KEY_ID);
       return json({ configured: Boolean(info?.configured) });
     },
     'GET settings': async () => json({ settings }),
+    'GET ai': async () => {
+      const record = await ctx.credentials.readRecord(AI_KEY_ID);
+      return json({
+        mode: settings.aiMode === 'custom' ? 'custom' : 'dsh',
+        baseUrl: settings.aiBaseUrl ?? '',
+        model: settings.aiModel ?? '',
+        keyConfigured: Boolean(record?.key),
+      });
+    },
+    'POST ai': async (request) => {
+      const body = await readBody(request);
+      const patch = {};
+      if (body.mode === 'dsh' || body.mode === 'custom') patch.aiMode = body.mode;
+      if (typeof body.baseUrl === 'string') patch.aiBaseUrl = body.baseUrl.trim();
+      if (typeof body.model === 'string') patch.aiModel = body.model.trim();
+      const next = await writeSettings(patch);
+      return json({ ok: true, settings: next });
+    },
+    'POST ai-key': async (request) => {
+      const body = await readBody(request);
+      const key = typeof body.key === 'string' ? body.key.trim() : '';
+      if (key.length < 8) return json({ error: { code: 'format', message: '这个 Key 看起来太短了' } }, 400);
+      await ctx.credentials.modifyRecord(AI_KEY_ID, async () => ({ kind: 'api-key', key }));
+      const base = String(body.baseUrl ?? settings.aiBaseUrl ?? '').trim();
+      if (!base) return json({ ok: true, verified: false });
+      try {
+        const response = await fetch(`${base.replace(/\/+$/, '')}/models`, {
+          headers: { authorization: `Bearer ${key}` },
+          signal: AbortSignal.timeout(8000),
+        });
+        return json({ ok: true, verified: response.ok, status: response.status });
+      } catch (error) {
+        return json({ ok: true, verified: false, note: String(error?.message ?? error) });
+      }
+    },
+    'DELETE ai-key': async () => {
+      await ctx.credentials.deleteRecord(AI_KEY_ID);
+      return json({ ok: true });
+    },
     'POST settings': async (request) => {
       const body = await readBody(request);
       const patch = {};
       if (typeof body.autoSplit === 'boolean') patch.autoSplit = body.autoSplit;
       if (typeof body.folder === 'string' && body.folder.trim()) patch.folder = body.folder.trim();
       if (typeof body.vaultPath === 'string' && body.vaultPath.trim()) patch.vaultPath = body.vaultPath.trim();
+      if (body.aiMode === 'dsh' || body.aiMode === 'custom') patch.aiMode = body.aiMode;
+      if (typeof body.aiBaseUrl === 'string') patch.aiBaseUrl = body.aiBaseUrl.trim();
+      if (typeof body.aiModel === 'string') patch.aiModel = body.aiModel.trim();
       const next = await writeSettings(patch);
       return json({ ok: true, settings: next });
     },
@@ -824,20 +981,24 @@ export function apply(ctx, config = {}) {
         return;
       }
 
-      if (route === 'settings' && method === 'POST') {
+      if (
+        (route === 'settings' && method === 'POST') ||
+        ((route === 'ai' || route === 'ai-key') && (method === 'POST' || method === 'DELETE'))
+      ) {
         let body = {};
         try {
           body = JSON.parse(payload || '{}');
         } catch {
           body = {};
         }
-        const patch = {};
-        if (typeof body.autoSplit === 'boolean') patch.autoSplit = body.autoSplit;
-        if (typeof body.folder === 'string' && body.folder.trim()) patch.folder = body.folder.trim();
-        if (typeof body.vaultPath === 'string' && body.vaultPath.trim()) patch.vaultPath = body.vaultPath.trim();
-        const next = await writeSettings(patch);
-        const text = JSON.stringify({ ok: true, settings: next });
-        res.writeHead(200, {
+        const request = new Request(url, {
+          method,
+          headers: { 'content-type': 'application/json' },
+          body: method === 'POST' ? JSON.stringify(body) : undefined,
+        });
+        const response = await routes[`${method} ${route}`](request);
+        const text = await response.text();
+        res.writeHead(response.status, {
           'content-type': 'application/json; charset=utf-8',
           'cache-control': 'no-store',
           'content-length': Buffer.byteLength(text),

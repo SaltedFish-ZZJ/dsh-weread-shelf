@@ -112,6 +112,22 @@ window.__ModuleLoader__.load({
         aiAsk: '想聊哪段？直接问。',
         aiGreeting: (name) => `我在。想聊聊《${name}》，还是想先过一遍你划过的线？`,
         aiGlobal: '我是屿。可以帮你挑下一本、串起几本书里的说法，或者看看你最近读得偏什么。',
+        aiSource: '问屿的 AI',
+        aiDsh: '跟随 DSH 模型',
+        aiCustom: '自定义接口',
+        aiSourceHint: '默认用这个 DSH 里当前选的模型，不用再额外付费；想换别家的接口就选自定义。',
+        aiBaseUrl: '接口地址',
+        aiBasePlaceholder: 'https://api.deepseek.com/v1',
+        aiModel: '模型名',
+        aiModelPlaceholder: 'deepseek-chat',
+        aiKey: '接口 Key',
+        aiKeyConnected: 'Key 已保存',
+        aiKeyMissing: '还没保存 Key',
+        aiSaveKey: '保存 Key',
+        aiClearKey: '清除',
+        aiVerified: '连接测试通过',
+        aiUnverified: '已保存，但连接测试没通过',
+        aiKeySaved: '接口 Key 已保存',
         send: '回车发送',
         thinking: '想着…',
         aiError: 'AI 这会儿没接上：',
@@ -222,6 +238,22 @@ window.__ModuleLoader__.load({
         aiAsk: 'Ask about anything you read',
         aiGreeting: (name) => `I am here. Shall we talk about “${name}”, or go through your highlights first?`,
         aiGlobal: 'I can pick your next book, connect ideas across your shelf, or show what you have been reading lately.',
+        aiSource: 'Ask-Isle AI',
+        aiDsh: 'Use the DSH model',
+        aiCustom: 'Custom endpoint',
+        aiSourceHint: 'By default the model this DSH already uses answers; pick a custom endpoint to bring your own.',
+        aiBaseUrl: 'Base URL',
+        aiBasePlaceholder: 'https://api.deepseek.com/v1',
+        aiModel: 'Model',
+        aiModelPlaceholder: 'deepseek-chat',
+        aiKey: 'Endpoint key',
+        aiKeyConnected: 'Key saved',
+        aiKeyMissing: 'No key yet',
+        aiSaveKey: 'Save key',
+        aiClearKey: 'Clear',
+        aiVerified: 'Connection test passed',
+        aiUnverified: 'Saved, but the connection test failed',
+        aiKeySaved: 'Endpoint key saved',
         send: 'Enter to send',
         thinking: 'Thinking…',
         aiError: 'AI is not reachable: ',
@@ -246,13 +278,13 @@ window.__ModuleLoader__.load({
     const SANS = '"Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif';
 
     const C = {
-      base: '#F5F0E5',
-      l1: '#FFFDF7',
-      l2: '#EBE3D1',
-      border: '#D8CFBC',
-      border2: '#C3B79F',
-      text: '#221F1B',
-      dim: '#7A7266',
+      base: '#F6F1E6',
+      l1: '#FFFDF8',
+      l2: '#EFE8D8',
+      border: 'rgba(203,192,171,.82)',
+      border2: 'rgba(184,172,148,.78)',
+      text: '#2B2621',
+      dim: '#7C7466',
       brand: BRAND,
       ok: '#3F6B4F',
       warn: '#A26A22',
@@ -266,47 +298,25 @@ window.__ModuleLoader__.load({
         flexDirection: 'column',
         background: C.base,
         color: C.text,
-        font: `13px/1.6 ${SANS}`,
+        font: `13px/1.68 ${SANS}`,
         overflow: 'hidden',
       },
       header: {
         display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        padding: '14px 22px 12px',
-        borderBottom: `2px solid ${C.text}`,
+        alignItems: 'baseline',
+        gap: 15,
+        padding: '17px 24px 13px',
+        borderBottom: '1px solid rgba(43,38,33,.20)',
         flex: 'none',
       },
-      brand: { display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 },
-      seal: {
-        width: 27,
-        height: 54,
-        flex: 'none',
-        background: BRAND,
-        border: '1px solid #6A2A20',
-        boxShadow: 'inset 0 0 0 2px rgba(247,242,231,.34)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '5px 0',
-        boxSizing: 'border-box',
-      },
-      sealText: {
-        writingMode: 'vertical-rl',
-        fontFamily: SERIF,
-        fontSize: 16,
-        fontWeight: 600,
-        letterSpacing: 5,
-        lineHeight: 1,
-        color: '#FBF6EA',
-      },
-      brandCol: { display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 },
-      brandTitle: { fontFamily: SERIF, fontSize: 22, fontWeight: 600, letterSpacing: 2.4, lineHeight: 1.1 },
+      brand: { display: 'flex', alignItems: 'baseline', gap: 11, minWidth: 0 },
+      brandTitle: { fontFamily: SERIF, fontSize: 21, fontWeight: 600, letterSpacing: 3.2, lineHeight: 1.1 },
       plate: {
         border: `1px solid ${C.border2}`,
-        background: 'rgba(255,253,247,.62)',
-        padding: '16px 18px 14px',
-        boxShadow: '0 1px 0 rgba(34,31,27,.06)',
+        borderRadius: 2,
+        background: 'rgba(255,253,248,.6)',
+        padding: '18px 20px 16px',
+        boxShadow: '0 1px 4px rgba(43,38,33,.05)',
       },
       brandSub: { fontSize: 11, color: C.dim, letterSpacing: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
       grow: { flex: 1, minWidth: 0 },
@@ -350,29 +360,29 @@ window.__ModuleLoader__.load({
       },
       primary: {
         appearance: 'none',
-        border: `1px solid ${C.brand}`,
+        border: '1px solid rgba(106,42,32,.9)',
         background: C.brand,
-        color: '#FFFDF7',
+        color: '#FFFDFB',
         fontWeight: 600,
         fontSize: 13,
         letterSpacing: 0.4,
         height: 34,
         padding: '0 16px',
-        borderRadius: 0,
+        borderRadius: 2,
         cursor: 'pointer',
         whiteSpace: 'nowrap',
       },
       ghost: {
         appearance: 'none',
         border: `1px solid ${C.border}`,
-        background: 'transparent',
+        background: 'rgba(255,253,248,.55)',
         color: C.text,
         fontWeight: 500,
         fontSize: 13,
         letterSpacing: 0.3,
         height: 34,
         padding: '0 14px',
-        borderRadius: 0,
+        borderRadius: 2,
         cursor: 'pointer',
         whiteSpace: 'nowrap',
       },
@@ -387,7 +397,7 @@ window.__ModuleLoader__.load({
         textDecoration: 'underline',
         textUnderlineOffset: 3,
       },
-      body: { flex: 1, minHeight: 0, overflow: 'auto', padding: '18px 22px 30px' },
+      body: { flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 24px 34px' },
       grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '26px 20px' },
       card: {
         display: 'flex',
@@ -410,7 +420,8 @@ window.__ModuleLoader__.load({
         border: `1px solid ${C.border}`,
         background: C.l1,
         overflow: 'hidden',
-        boxShadow: '0 1px 2px rgba(34,31,27,.10)',
+        borderRadius: 2,
+        boxShadow: '0 1px 3px rgba(43,38,33,.07)',
       },
       coverImg: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
       coverFallback: {
@@ -453,12 +464,12 @@ window.__ModuleLoader__.load({
       barFill: { height: '100%', borderRadius: 0, background: C.brand },
       badge: {
         position: 'absolute',
-        top: 6,
-        left: 6,
-        fontSize: 10,
+        top: 5,
+        left: 5,
+        fontSize: 9.5,
         letterSpacing: 0.6,
         padding: '2px 6px',
-        borderRadius: 0,
+        borderRadius: 2,
         background: BRAND,
         color: '#FFFDF7',
         fontWeight: 600,
@@ -583,7 +594,7 @@ window.__ModuleLoader__.load({
         overflowY: 'auto',
         background: C.base,
         border: `1px solid ${C.border2}`,
-        borderRadius: 0,
+        borderRadius: 2,
         padding: 22,
         display: 'flex',
         flexDirection: 'column',
@@ -2295,6 +2306,53 @@ window.__ModuleLoader__.load({
       const [keyState, setKeyState] = useState({ busy: false, error: '', note: '' });
       const [draft, setDraft] = useState(initial || {});
       const [saving, setSaving] = useState(false);
+      const [ai, setAi] = useState({ mode: 'dsh', baseUrl: '', model: '', keyConfigured: false });
+      const [aiKey, setAiKey] = useState('');
+      const [aiState, setAiState] = useState({ busy: false, error: '', note: '' });
+
+      useEffect(() => {
+        let alive = true;
+        api('/ai')
+          .then((data) => {
+            if (alive && data) setAi(data);
+          })
+          .catch(() => {});
+        return () => {
+          alive = false;
+        };
+      }, []);
+
+      const saveAiKey = async () => {
+        if (!aiKey.trim() || aiState.busy) return;
+        setAiState({ busy: true, error: '', note: '' });
+        try {
+          const result = await api('/ai-key', {
+            method: 'POST',
+            body: { key: aiKey.trim(), baseUrl: ai.baseUrl || '' },
+          });
+          setAiKey('');
+          setAi({ ...ai, keyConfigured: true });
+          setAiState({
+            busy: false,
+            error: '',
+            note: result && result.verified === false ? T.aiUnverified : T.aiVerified,
+          });
+        } catch (error) {
+          setAiState({ busy: false, error: error.message, note: '' });
+        }
+      };
+
+      const clearAiKey = async () => {
+        if (aiState.busy) return;
+        setAiState({ busy: true, error: '', note: '' });
+        try {
+          await api('/ai-key', { method: 'DELETE' });
+          setAi({ ...ai, keyConfigured: false });
+          setAiState({ busy: false, error: '', note: '' });
+        } catch (error) {
+          setAiState({ busy: false, error: error.message, note: '' });
+        }
+      };
 
       const saveKey = async () => {
         if (!apiKey.trim() || keyState.busy) return;
@@ -2324,7 +2382,8 @@ window.__ModuleLoader__.load({
       const save = async () => {
         setSaving(true);
         try {
-          const result = await api('/settings', { method: 'POST', body: draft });
+          const payload = { ...draft, aiMode: ai.mode, aiBaseUrl: ai.baseUrl, aiModel: ai.model };
+          const result = await api('/settings', { method: 'POST', body: payload });
           onSaved(result.settings || draft);
           onClose();
         } catch (error) {
@@ -2383,6 +2442,47 @@ window.__ModuleLoader__.load({
             h(Btn, { onClick: saveKey, disabled: keyState.busy || !apiKey.trim() }, T.connect),
             h(Btn, { onClick: clearKey, disabled: keyState.busy || !configured }, T.disconnect),
           ),
+          h('div', { style: S.sheetDivider }),
+          h('div', { style: { fontSize: 13, fontWeight: 650, color: C.text } }, T.aiSource),
+          h('div', { style: S.fieldLabel }, T.aiSourceHint),
+          h('div', { style: { display: 'flex', gap: 8 } },
+            h(Btn, { kind: ai.mode === 'dsh' ? 'primary' : 'ghost', onClick: () => setAi({ ...ai, mode: 'dsh' }) }, T.aiDsh),
+            h(Btn, { kind: ai.mode === 'custom' ? 'primary' : 'ghost', onClick: () => setAi({ ...ai, mode: 'custom' }) }, T.aiCustom),
+          ),
+          ai.mode === 'custom'
+            ? h('div', null,
+                h('div', { style: S.fieldLabel }, T.aiBaseUrl),
+                h('input', {
+                  style: S.field,
+                  placeholder: T.aiBasePlaceholder,
+                  value: ai.baseUrl || '',
+                  onChange: (event) => setAi({ ...ai, baseUrl: event.target.value }),
+                }),
+                h('div', { style: S.fieldLabel }, T.aiModel),
+                h('input', {
+                  style: S.field,
+                  placeholder: T.aiModelPlaceholder,
+                  value: ai.model || '',
+                  onChange: (event) => setAi({ ...ai, model: event.target.value }),
+                }),
+                h('div', { style: S.fieldLabel }, `${T.aiKey} · ${ai.keyConfigured ? T.aiKeyConnected : T.aiKeyMissing}`),
+                h('input', {
+                  type: 'password',
+                  style: S.field,
+                  value: aiKey,
+                  onChange: (event) => setAiKey(event.target.value),
+                  onKeyDown: (event) => {
+                    if (event.key === 'Enter') saveAiKey();
+                  },
+                }),
+                aiState.error ? h('div', { style: { color: C.warn, fontSize: 12 } }, aiState.error) : null,
+                aiState.note ? h('div', { style: { color: C.ok, fontSize: 12 } }, aiState.note) : null,
+                h('div', { style: { display: 'flex', gap: 8 } },
+                  h(Btn, { onClick: saveAiKey, disabled: aiState.busy || !aiKey.trim() }, T.aiSaveKey),
+                  h(Btn, { onClick: clearAiKey, disabled: aiState.busy || !ai.keyConfigured }, T.aiClearKey),
+                ),
+              )
+            : null,
           h('div', { style: { display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 } },
             h(Btn, { onClick: onClose }, '取消'),
             h(Btn, { kind: 'primary', onClick: save, disabled: saving }, saving ? T.saving : T.saveSettings),
@@ -2500,8 +2600,8 @@ window.__ModuleLoader__.load({
           h(
             'div',
             { style: S.brand },
-            h('div', { style: S.seal }, h('span', { style: S.sealText }, T.title)),
-            h('div', { style: S.brandCol }, h('div', { style: S.brandSub }, T.sub)),
+            h('div', { style: S.brandTitle }, T.title),
+            h('div', { style: S.brandSub }, T.sub),
           ),
           h('div', { style: S.grow }),
           h(
