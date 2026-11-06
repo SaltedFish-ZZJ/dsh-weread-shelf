@@ -477,6 +477,18 @@ async function snap(name, current = tree) {
   console.log(`  ⤷ wrote ${htmlBase}-${name}.html`)
 }
 
+await snap('today')
+const todayText = textOf(tree)
+const todayChecks = [
+  ['今日首屏可见', todayText.includes('今天读到')],
+  ['连续阅读可见（今日）', todayText.includes('连续阅读')],
+  ['旧句重逢可见', todayText.includes('旧句重逢') || todayText.includes('今天划下的')],
+  ['换一句按钮可见', todayText.includes('换一句')],
+]
+for (const [name, pass] of todayChecks) {
+  console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+  if (!pass) errors.push({ path: 'today', error: new Error(`${name}: ${todayText.slice(0, 600)}`) })
+}
 await snap('home')
 await click('笔记')
 await snap('notes')

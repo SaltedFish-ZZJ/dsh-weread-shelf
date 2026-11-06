@@ -38,6 +38,16 @@ window.__ModuleLoader__.load({
         folderCount: (n) => `${n} 本`,
         folderEmpty: '这个书单里的书还没同步过来',
         backShelf: '← 书架',
+        today: '今日',
+        readToday: '今天读到',
+        weekRead: '本周读到',
+        todayBooks: '今天翻开的书',
+        noReadToday: '今天还没翻开过书。',
+        todayQuote: '今天划下的',
+        oldQuote: '旧句重逢',
+        anotherLine: '换一句',
+        anotherBook: '换一本',
+        openDetail: '查看这本书',
         finishedBadge: '已读完',
         progress: '进度',
         minutes: '分钟',
@@ -168,6 +178,16 @@ window.__ModuleLoader__.load({
         folderCount: (n) => `${n} books`,
         folderEmpty: 'Nothing synced for this collection yet',
         backShelf: '← Shelf',
+        today: 'Today',
+        readToday: 'Read today',
+        weekRead: 'Read this week',
+        todayBooks: 'Opened today',
+        noReadToday: 'No book opened today yet.',
+        todayQuote: 'Highlighted today',
+        oldQuote: 'A line from before',
+        anotherLine: 'Another line',
+        anotherBook: 'Another book',
+        openDetail: 'Book details',
         finishedBadge: 'Finished',
         progress: 'Progress',
         minutes: 'min',
@@ -1349,6 +1369,232 @@ window.__ModuleLoader__.load({
           h(Btn, { kind: 'primary', onClick: submit, disabled: state.busy }, state.busy ? T.connecting : T.connect),
           onCancel ? h(Btn, { onClick: onCancel }, T.close) : null,
         ),
+      );
+    }
+
+    // ------------------------------------------------------------ today
+    const DAY_MS = 86400000;
+    const startOfDay = (ms) => {
+      const date = new Date(ms);
+      date.setHours(0, 0, 0, 0);
+      return date.getTime();
+    };
+    const weekdayName = (date) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
+
+    function TodayView(props) {
+      const { onOpen, onOpenReader, onToast } = props;
+      const [shelf, setShelf] = useState(null);
+      const [cal, setCal] = useState(null);
+      const [quote, setQuote] = useState(null);
+      const [state, setState] = useState({ loading: true, error: '' });
+      const [busy, setBusy] = useState(false);
+
+      useEffect(() => {
+        let alive = true;
+        Promise.all([api('/shelf'), api('/calendar?weeks=8').catch(() => null)])
+          .then(([shelfData, calendar]) => {
+            if (!alive) return;
+            setShelf(shelfData);
+            setCal(calendar);
+            setState({ loading: false, error: '' });
+          })
+          .catch((error) => {
+            if (alive) setState({ loading: false, error: error.message });
+          });
+        return () => {
+          alive = false;
+        };
+      }, []);
+
+      const pick = useCallback(
+        async (avoidId) => {
+          const all = (shelf && shelf.books) || [];
+          const withNotes = all.filter((book) => (book.noteCount || 0) > 0);
+          const pool = (withNotes.length ? withNotes : all).filter((book) => book.bookId !== avoidId);
+          if (!pool.length) {
+            setQuote(null);
+            return;
+          }
+          setBusy(true);
+          try {
+            const book = pool[Math.floor(Math.random() * pool.length)];
+            const detail = await api('/book?id=' + encodeURIComponent(book.bookId));
+            const list = (detail && detail.highlights) || [];
+            if (!list.length) {
+              setQuote({ book, highlight: null, list: [] });
+              return;
+            }
+            const todayStart = startOfDay(Date.now());
+            const fresh = list.filter((entry) => (entry.createTime || 0) >= todayStart);
+            const source = fresh.length ? fresh : list;
+            const highlight = source[Math.floor(Math.random() * source.length)];
+            setQuote({ book, highlight, list, fresh: fresh.length > 0 });
+          } catch (error) {
+            onToast(error.message);
+          } finally {
+            setBusy(false);
+          }
+        },
+        [shelf, onToast],
+      );
+
+      useEffect(() => {
+        if (shelf && !quote) pick(null);
+      }, [shelf, quote, pick]);
+
+      const nextLine = () => {
+        if (!quote || !quote.list || quote.list.length < 2) {
+          pick(quote ? quote.book.bookId : null);
+          return;
+        }
+        const rest = quote.list.filter((entry) => entry.bookmarkId !== (quote.highlight && quote.highlight.bookmarkId));
+        const highlight = rest[Math.floor(Math.random() * rest.length)];
+        setQuote({ ...quote, highlight });
+      };
+
+      if (state.loading) return h('div', { style: S.empty }, T.loading);
+      if (state.error)
+        return h(
+          'div',
+          { style: S.empty },
+          `${T.error}：${state.error}`,
+          h('div', { style: { marginTop: 10 } }, h(Btn, { onClick: () => window.location.reload() }, T.retry)),
+        );
+
+      const now = new Date();
+      const todayStart = startOfDay(now.getTime());
+      const days = (cal && cal.days) || {};
+      const todayKey = dayStamp(now);
+      const todaySeconds = Number(days[todayKey]) || 0;
+      let streak = 0;
+      for (let step = 0; step < 400; step += 1) {
+        const key = dayStamp(new Date(todayStart - step * DAY_MS + 43200000));
+        if (!Number(days[key])) break;
+        streak += 1;
+      }
+      const readToday = ((shelf && shelf.books) || []).filter((book) => (book.lastReadAt || 0) >= todayStart);
+      let weekSeconds = 0;
+      for (let step = 0; step < 7; step += 1) {
+        const key = dayStamp(new Date(todayStart - step * DAY_MS + 43200000));
+        weekSeconds += Number(days[key]) || 0;
+      }
+
+      const head = h(
+        'div',
+        { style: { display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 } },
+        h('div', { style: { fontFamily: SERIF, fontSize: 19, letterSpacing: 1.2 } }, `${now.getMonth() + 1} 月 ${now.getDate()} 日`),
+        h('div', { style: { fontSize: 12, color: C.dim, letterSpacing: 0.8 } }, weekdayName(now)),
+      );
+
+      const summary = h(
+        'div',
+        { style: { ...S.plate, display: 'flex', gap: 34, flexWrap: 'wrap', marginBottom: 22 } },
+        h(
+          'div',
+          null,
+          h('div', { style: { fontSize: 11, color: C.dim, letterSpacing: 1.2 } }, T.readToday),
+          h('div', { style: { fontFamily: SERIF, fontSize: 26, letterSpacing: 0.5, marginTop: 2 } }, shortTime(todaySeconds)),
+        ),
+        h(
+          'div',
+          null,
+          h('div', { style: { fontSize: 11, color: C.dim, letterSpacing: 1.2 } }, T.streak),
+          h('div', { style: { fontFamily: SERIF, fontSize: 26, letterSpacing: 0.5, marginTop: 2 } }, `${streak} ${T.daysUnit}`),
+        ),
+        h(
+          'div',
+          null,
+          h('div', { style: { fontSize: 11, color: C.dim, letterSpacing: 1.2 } }, T.weekRead),
+          h('div', { style: { fontFamily: SERIF, fontSize: 26, letterSpacing: 0.5, marginTop: 2 } }, shortTime(weekSeconds)),
+        ),
+      );
+
+      const booksBlock = readToday.length
+        ? h(
+            'div',
+            { style: { marginBottom: 24 } },
+            h('div', { style: { ...S.sectionTitle, marginBottom: 12 } }, T.todayBooks),
+            readToday.slice(0, 6).map((book) =>
+              h(
+                'button',
+                {
+                  type: 'button',
+                  key: book.bookId,
+                  style: {
+                    ...S.listItem,
+                    display: 'flex',
+                    gap: 12,
+                    alignItems: 'center',
+                    width: '100%',
+                    textAlign: 'left',
+                    font: 'inherit',
+                    color: 'inherit',
+                    cursor: 'pointer',
+                  },
+                  onClick: () => onOpen(book),
+                },
+                h(Cover, { book, compact: true, style: { width: 40, flex: 'none', boxShadow: 'none' } }),
+                h(
+                  'div',
+                  { style: { flex: 1, minWidth: 0 } },
+                  h('div', { style: S.bookTitle }, book.title),
+                  h('div', { style: { ...S.bookMeta, marginTop: 2 } }, `${book.author || '佚名'} · ${Math.round(book.progress || 0)}%`),
+                ),
+                h(
+                  'span',
+                  { style: { fontSize: 11.5, color: C.dim, letterSpacing: 0.6 } },
+                  book.noteCount ? `${book.noteCount} 划线` : '',
+                ),
+              ),
+            ),
+          )
+        : h('div', { style: { ...S.empty, paddingTop: 0, marginBottom: 22 } }, T.noReadToday);
+
+      let quoteBlock = null;
+      if (quote && quote.highlight) {
+        quoteBlock = h(
+          'div',
+          { style: S.plate },
+          h(
+            'div',
+            { style: { display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 } },
+            h('div', { style: { ...S.sectionTitle, flex: 1 } }, quote.fresh ? T.todayQuote : T.oldQuote),
+            h('span', { style: { fontSize: 11, color: C.dim, letterSpacing: 0.6 } }, busy ? T.loading : ''),
+          ),
+          h('div', { style: { fontFamily: SERIF, fontSize: 15.5, lineHeight: 1.95 } }, `「${quote.highlight.markText}」`),
+          h(
+            'div',
+            { style: { marginTop: 12, display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' } },
+            h('span', { style: { fontFamily: SERIF, fontSize: 13 } }, `《${quote.book.title}》`),
+            h('span', { style: { fontSize: 11.5, color: C.dim } }, [quote.book.author, quote.highlight.chapterName].filter(Boolean).join(' · ')),
+          ),
+          h(
+            'div',
+            { style: { marginTop: 14, display: 'flex', gap: 8, flexWrap: 'wrap' } },
+            h(Btn, { onClick: nextLine, disabled: busy }, T.anotherLine),
+            h(Btn, { onClick: () => pick(quote.book.bookId), disabled: busy }, T.anotherBook),
+            h(Btn, { onClick: () => onOpen(quote.book) }, T.openDetail),
+            quote.book.readerLink || quote.book.deepLink
+              ? h(Btn, { kind: 'primary', onClick: () => onOpenReader(quote.book) }, T.readNow)
+              : null,
+          ),
+        );
+      } else if (quote && !quote.highlight) {
+        quoteBlock = h(
+          'div',
+          { style: S.plate },
+          h('div', { style: { ...S.sectionTitle, marginBottom: 8 } }, T.oldQuote),
+          h('div', { style: { fontSize: 12.5, color: C.dim } }, `${T.noHighlights}`, h('div', { style: { marginTop: 10 } }, h(Btn, { onClick: () => pick(quote.book.bookId) }, T.anotherBook))),
+        );
+      }
+
+      return h(
+        'div',
+        { style: S.body },
+        head,
+        summary,
+        booksBlock,
+        quoteBlock,
       );
     }
 
@@ -2628,7 +2874,7 @@ window.__ModuleLoader__.load({
 
     // ------------------------------------------------------------ panel
     function Panel() {
-      const [tab, setTab] = useState('shelf');
+      const [tab, setTab] = useState('today');
       const [configured, setConfigured] = useState(null);
       const [book, setBook] = useState(null);
       const [ai, setAi] = useState(null);
@@ -2667,6 +2913,25 @@ window.__ModuleLoader__.load({
           .catch(() => setSettings({}));
       }, []);
 
+      const openReader = useCallback(
+        async (target) => {
+          const url = target.readerLink || target.deepLink;
+          if (!url) {
+            showToast(T.noReaderLink);
+            return;
+          }
+          try {
+            const result = await api('/open', { method: 'POST', body: { url } });
+            if (result?.mode === 'app-window') showToast(T.openedWindow);
+            if (settings?.autoSplit !== false) setSplit(target);
+          } catch (error) {
+            window.open(url, '_blank', 'noopener');
+            showToast(error.message);
+          }
+        },
+        [settings, showToast],
+      );
+
       const ask = useCallback((target, prompt) => {
         setAi({ mode: target ? 'book' : 'global', book: target });
         if (prompt) setSeeded(prompt);
@@ -2702,22 +2967,10 @@ window.__ModuleLoader__.load({
           onBack: () => setBook(null),
           onToast: showToast,
           onAsk: ask,
-          onOpenReader: async (target) => {
-            const url = target.readerLink || target.deepLink;
-            if (!url) {
-              showToast(T.noReaderLink);
-              return;
-            }
-            try {
-              const result = await api('/open', { method: 'POST', body: { url } });
-              if (result?.mode === 'app-window') showToast(T.openedWindow);
-              if (settings?.autoSplit !== false) setSplit(target);
-            } catch (error) {
-              window.open(url, '_blank', 'noopener');
-              showToast(error.message);
-            }
-          },
+          onOpenReader: openReader,
         });
+      } else if (tab === 'today') {
+        main = h(TodayView, { onOpen: openBook, onOpenReader: openReader, onToast: showToast });
       } else if (tab === 'shelf') {
         main = h(ShelfView, { onOpen: openBook, onAskShelf: () => ask(null), onToast: showToast });
       } else if (tab === 'notes') {
@@ -2743,6 +2996,7 @@ window.__ModuleLoader__.load({
             'div',
             { style: S.tabs },
             [
+              ['today', T.today],
               ['shelf', T.shelf],
               ['notes', T.notes],
               ['stats', T.stats],
