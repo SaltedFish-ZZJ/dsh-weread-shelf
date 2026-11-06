@@ -53,12 +53,13 @@ Key 存在 DSH 的 credentials 服务里，**不写进本仓库、也不进配�
 DSH 的插件市场**没有「上传」入口**，它是索引驱动的：谁提供一份索引 JSON，用户把这份索引的 URL 加进「发现」里，就能浏览和安装其中的插件。所以这个仓库自带一份 format-1 索引。
 
 - 索引文件：[`market/index.json`](market/index.json)，由 `npm run market:index` 生成（`git` 源 + 固定 commit）
-- 索引地址：`https://raw.githubusercontent.com/SaltedFish-ZZJ/dsh-weread-shelf/main/market/index.json`
+- 索引地址（推荐，全球可用）：`https://cdn.jsdelivr.net/gh/SaltedFish-ZZJ/dsh-weread-shelf@main/market/index.json`
+- 备用：`https://raw.githubusercontent.com/SaltedFish-ZZJ/dsh-weread-shelf/main/market/index.json`、`https://ghproxy.net/https://raw.githubusercontent.com/SaltedFish-ZZJ/dsh-weread-shelf/main/market/index.json`
 
 添加步骤：
 
 1. 设置 → 插件 → 发现（Discover）→ 索引源 → 添加
-2. 填上面那个 raw URL
+2. 填上面第一个 URL（这个走 jsDelivr，国内外一般都能解析）
 3. 之后在发现里搜「书屿」即可安装
 
 几个约束（来自 `@deepseek-ai/dsh-plugin-market-index` 的校验规则）：
