@@ -1,0 +1,65 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Shuyu Plugins",
+    "zh": "书屿插件索引"
+  },
+  "description": {
+    "en": "Single-plugin index for Shuyu, a WeRead shelf plugin for DSH.",
+    "zh": "书屿的插件索引，目前只收录书屿本体。"
+  },
+  "metadata": {
+    "categories": {
+      "reading": {
+        "title": {
+          "en": "Reading",
+          "zh": "阅读"
+        }
+      }
+    }
+  },
+  "plugins": [
+    {
+      "name": "@local/dsh-weread-shelf",
+      "title": {
+        "en": "Shuyu · WeRead Shelf",
+        "zh": "书屿 · 微信读书书架"
+      },
+      "description": {
+        "en": "A WeRead shelf inside DSH: browse your books, open a book in a chrome-less reader window, ask an AI companion, and file highlights into Obsidian.",
+        "zh": "把微信读书搬进 DSH 左侧栏：书架、独立窗口阅读、AI 陪读台，划线与想法一路写进 Obsidian。"
+      },
+      "icon": "./icon.svg",
+      "author": "书屿 contributors",
+      "homepage": "https://github.com/SaltedFish-ZZJ/dsh-weread-shelf",
+      "repository": {
+        "url": "https://github.com/SaltedFish-ZZJ/dsh-weread-shelf"
+      },
+      "metadata": {
+        "category": "reading",
+        "keywords": [
+          "微信读书",
+          "书架",
+          "wechat-reading",
+          "obsidian",
+          "AI 陪读",
+          "bookshelf"
+        ]
+      },
+      "versions": [
+        {
+          "version": "0.9.5",
+          "publishTimestamp": 1793951740,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/SaltedFish-ZZJ/dsh-weread-shelf",
+            "commit": "09e0449f4393756b636606a7126965591f8bfa86"
+          },
+          "engines": {
+            "dsh": ">=0.2.0-rc.2"
+          }
+        }
+      ]
+    }
+  ]
+}
