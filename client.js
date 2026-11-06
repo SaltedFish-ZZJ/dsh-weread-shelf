@@ -39,6 +39,11 @@ window.__ModuleLoader__.load({
         folderEmpty: '这个书单里的书还没同步过来',
         backShelf: '← 书架',
         today: '今日',
+        groupFlat: '平铺',
+        groupCategory: '分类',
+        groupProgress: '进度',
+        groupLetter: '首字母',
+        uncategorized: '未分类',
         readToday: '今天读到',
         weekRead: '本周读到',
         todayBooks: '今天翻开的书',
@@ -179,6 +184,11 @@ window.__ModuleLoader__.load({
         folderEmpty: 'Nothing synced for this collection yet',
         backShelf: '← Shelf',
         today: 'Today',
+        groupFlat: 'Flat',
+        groupCategory: 'Genre',
+        groupProgress: 'Progress',
+        groupLetter: 'A–Z',
+        uncategorized: 'Unfiled',
         readToday: 'Read today',
         weekRead: 'Read this week',
         todayBooks: 'Opened today',
@@ -1381,6 +1391,27 @@ window.__ModuleLoader__.load({
     };
     const weekdayName = (date) => ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()];
 
+    // Bucket a Chinese title by its pinyin initial: the browser's zh collator already sorts
+    // hanzi by pinyin, so comparing against one representative character per letter is enough.
+    const PINYIN_BOUNDS = [
+      ['A', '阿'], ['B', '八'], ['C', '嚓'], ['D', '搭'], ['E', '蛾'], ['F', '发'],
+      ['G', '噶'], ['H', '哈'], ['J', '击'], ['K', '喀'], ['L', '垃'], ['M', '妈'],
+      ['N', '拿'], ['O', '哦'], ['P', '啪'], ['Q', '期'], ['R', '然'], ['S', '撒'],
+      ['T', '塔'], ['W', '挖'], ['X', '昔'], ['Y', '压'], ['Z', '匝'],
+    ];
+    const initialOf = (title) => {
+      const text = String(title || '').replace(/^[《（(\[【\s]+/, '');
+      const char = text[0] || '#';
+      if (/[a-z]/i.test(char)) return char.toUpperCase();
+      if (/[0-9]/.test(char)) return '#';
+      let result = '#';
+      for (const [letter, boundary] of PINYIN_BOUNDS) {
+        if (char.localeCompare(boundary, 'zh') >= 0) result = letter;
+        else break;
+      }
+      return result;
+    };
+
     function TodayView(props) {
       const { onOpen, onOpenReader, onToast } = props;
       const [shelf, setShelf] = useState(null);
@@ -1565,6 +1596,7 @@ const now = new Date();
       const [query, setQuery] = useState('');
       const [store, setStore] = useState(null);
       const [folder, setFolder] = useState(null);
+      const [group, setGroup] = useState('none');
 
       const load = useCallback(async () => {
         setState({ loading: true, error: '' });
@@ -1639,6 +1671,28 @@ const now = new Date();
           .sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0));
       }, [data, filter, query, folder]);
 
+      const sections = useMemo(() => {
+        if (group === 'none') return null;
+        const buckets = new Map();
+        for (const book of books) {
+          let key;
+          if (group === 'category') key = String(book.category || '').split('-')[0] || T.uncategorized;
+          else if (group === 'progress') {
+            const percent = book.finished ? 100 : book.progress || 0;
+            key = percent >= 100 ? T.finished : percent > 0 ? T.reading : T.notStarted;
+          } else key = initialOf(book.title);
+          if (!buckets.has(key)) buckets.set(key, []);
+          buckets.get(key).push(book);
+        }
+        const entries = [...buckets.entries()];
+        if (group === 'category') entries.sort((a, b) => b[1].length - a[1].length || String(a[0]).localeCompare(String(b[0]), 'zh'));
+        else if (group === 'progress') {
+          const order = [T.reading, T.notStarted, T.finished];
+          entries.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+        } else entries.sort((a, b) => (a[0] === '#' ? 1 : b[0] === '#' ? -1 : a[0] < b[0] ? -1 : 1));
+        return entries;
+      }, [books, group]);
+
       const openUrl = async (url) => {
         if (!url) {
           onToast(T.noReaderLink);
@@ -1706,6 +1760,23 @@ const now = new Date();
               ),
             ),
           ),
+          h('span', { style: { width: 1, height: 13, background: C.border, margin: '0 3px' } }),
+          h(
+            'div',
+            { style: S.chips },
+            [
+              ['none', T.groupFlat],
+              ['category', T.groupCategory],
+              ['progress', T.groupProgress],
+              ['letter', T.groupLetter],
+            ].map(([id, label]) =>
+              h(
+                'button',
+                { type: 'button', key: id, style: { ...S.chip, ...(group === id ? S.chipOn : {}) }, onClick: () => setGroup(id) },
+                label,
+              ),
+            ),
+          ),
           h('div', { style: S.grow }),
           h('div', { style: { fontSize: 11.5, color: C.dim, letterSpacing: 0.6 } }, T.count(books.length)),
         ),
@@ -1738,7 +1809,25 @@ const now = new Date();
             )
           : null;
         const bookGrid = books.length
-          ? h('div', { style: S.grid }, books.map((book) => h(BookCard, { key: book.bookId, book, onOpen })))
+          ? sections
+            ? h(
+                'div',
+                null,
+                sections.map(([title, items]) =>
+                  h(
+                    'div',
+                    { key: title, style: { marginBottom: 26 } },
+                    h(
+                      'div',
+                      { style: { ...S.sectionTitle, marginBottom: 13 } },
+                      title,
+                      h('span', { style: { marginLeft: 8, fontSize: 11, color: C.dim, letterSpacing: 0.6 } }, items.length),
+                    ),
+                    h('div', { style: S.grid }, items.map((book) => h(BookCard, { key: book.bookId, book, onOpen }))),
+                  ),
+                ),
+              )
+            : h('div', { style: S.grid }, books.map((book) => h(BookCard, { key: book.bookId, book, onOpen })))
           : h(
               'div',
               { style: { ...S.empty, paddingTop: folder ? 6 : 40 } },

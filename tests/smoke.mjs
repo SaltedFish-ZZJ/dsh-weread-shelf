@@ -255,6 +255,18 @@ const shelfPayload = {
       noteCount: 0,
       thoughtCount: 0,
     },
+    {
+      bookId: '3001',
+      title: '三体',
+      author: '刘慈欣',
+      cover: '',
+      category: '文学',
+      progress: 100,
+      finished: true,
+      noteCount: 2,
+      thoughtCount: 1,
+      lastReadAt: Date.now() - 86400000,
+    },
   ],
   albums: [],
   archive: [{ name: '神经漫游者三部曲', bookIds: ['CB_x'] }],
@@ -509,6 +521,28 @@ for (const [name, pass] of statsChecks) {
 await snap('stats')
 await click('书架')
 await snap('shelf')
+await click('分类')
+await snap('shelf-category')
+const categoryText = textOf(tree)
+const categoryChecks = [
+  ['按分类分组', categoryText.includes('文学') && categoryText.includes('经济')],
+  ['分组保留书籍', categoryText.includes('三体') && categoryText.includes('置身事内')],
+]
+for (const [name, pass] of categoryChecks) {
+  console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+  if (!pass) errors.push({ path: 'group', error: new Error(`${name}: ${categoryText.slice(0, 800)}`) })
+}
+await click('首字母')
+const letterText = textOf(tree)
+const letterChecks = [
+  ['按首字母分组', letterText.includes('Z') && letterText.includes('S')],
+  ['字母分组保留书籍', letterText.includes('三体')],
+]
+for (const [name, pass] of letterChecks) {
+  console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+  if (!pass) errors.push({ path: 'group', error: new Error(`${name}: ${letterText.slice(0, 800)}`) })
+}
+await click('平铺')
 const shelfText = textOf(tree)
 const folderChecks = [
   ['书单分组可见', shelfText.includes('书单')],

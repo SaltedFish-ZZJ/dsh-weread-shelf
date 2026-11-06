@@ -662,7 +662,9 @@ export function apply(ctx, config = {}) {
       return;
     }
     const host = parsed.hostname;
-    if (!/\.(qq\.com|qpic\.cn|weixin\.qq\.com)$/.test(host)) {
+    // WeRead serves covers from three places: cdn.weread.qq.com, res.weread.qq.com and
+    // the Tencent COS bucket wfqqreader-1252317822.image.myqcloud.com (imported / uploaded covers).
+    if (!/\.(qq\.com|qpic\.cn|weixin\.qq\.com|myqcloud\.com)$/.test(host)) {
       res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
       res.end('cover host not allowed');
       return;

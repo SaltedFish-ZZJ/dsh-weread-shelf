@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-weread-shelf",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "description": "WeRead cyber bookshelf panel for the DSH sidebar",
   "type": "module",

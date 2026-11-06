@@ -123,6 +123,19 @@ if (live) {
   const shelf = JSON.parse((await call('GET', '/api/weread/shelf')).body);
   expect('shelf returns books', Array.isArray(shelf.books) && shelf.books.length > 0, `books ${shelf.books?.length}`);
 
+  const cos = (shelf.books || []).find((book) => {
+    try {
+      return /\.myqcloud\.com$/.test(new URL(book.cover).hostname);
+    } catch {
+      return false;
+    }
+  });
+  if (cos) {
+    const image = await call('GET', `/api/weread/cover?u=${encodeURIComponent(cos.cover)}`);
+    const type = String(image.headers['content-type'] || image.headers['Content-Type'] || '');
+    expect('cover proxy serves tencent cos covers', image.status === 200 && type.startsWith('image/'), `${type} · ${cos.title}`);
+  }
+
   const stats = JSON.parse((await call('GET', '/api/weread/stats?mode=annually')).body);
   expect('stats normalizes seconds', typeof stats.totalSeconds === 'number' && stats.totalSeconds > 0, `total ${stats.totalSeconds}s · buckets ${stats.buckets?.length}`);
 
