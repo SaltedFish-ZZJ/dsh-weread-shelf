@@ -1,0 +1,5 @@
+node_modules/
+tests/pv/
+design/
+*.log
+.DS_Store

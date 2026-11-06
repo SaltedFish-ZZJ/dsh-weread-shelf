@@ -1,0 +1,3 @@
+- insert:
+    - id: weread-shelf
+      name: '@local/dsh-weread-shelf'
