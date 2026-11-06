@@ -402,6 +402,13 @@ globalThis.fetch = async (url, init = {}) => {
 // ---------------------------------------------------------------- load module
 const code = await readFile(SRC, 'utf8')
 let loaded = null
+// Pin the locale: assertions read Chinese labels, but Node >=21 exposes the host's
+// navigator.language (en-US on CI), which would flip the whole panel to English.
+Object.defineProperty(globalThis, 'navigator', {
+  value: { language: process.env.SMOKE_LOCALE || 'zh-CN', languages: [process.env.SMOKE_LOCALE || 'zh-CN'] },
+  configurable: true,
+  writable: true,
+})
 globalThis.window = { __ModuleLoader__: { load: (mod) => { loaded = mod } } }
 const requireStub = (name) => {
   if (name === 'react') return React
