@@ -34,6 +34,10 @@ window.__ModuleLoader__.load({
         finished: '读完',
         notStarted: '未开始',
         count: (n) => `共 ${n} 本`,
+        folder: '书单',
+        folderCount: (n) => `${n} 本`,
+        folderEmpty: '这个书单里的书还没同步过来',
+        backShelf: '← 书架',
         finishedBadge: '已读完',
         progress: '进度',
         minutes: '分钟',
@@ -160,6 +164,10 @@ window.__ModuleLoader__.load({
         finished: 'Finished',
         notStarted: 'Unread',
         count: (n) => `${n} books`,
+        folder: 'Collection',
+        folderCount: (n) => `${n} books`,
+        folderEmpty: 'Nothing synced for this collection yet',
+        backShelf: '← Shelf',
         finishedBadge: 'Finished',
         progress: 'Progress',
         minutes: 'min',
@@ -399,6 +407,51 @@ window.__ModuleLoader__.load({
       },
       body: { flex: 1, minHeight: 0, overflow: 'auto', padding: '20px 24px 34px' },
       grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '26px 20px' },
+      folderBox: {
+        position: 'relative',
+        width: '100%',
+        aspectRatio: '3 / 4',
+        boxSizing: 'border-box',
+        padding: 6,
+        border: `1px solid ${C.border}`,
+        background: C.l1,
+        overflow: 'hidden',
+        borderRadius: 2,
+        boxShadow: '0 1px 3px rgba(43,38,33,.07)',
+      },
+      folderCollage: {
+        width: '100%',
+        height: '100%',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gridTemplateRows: '1fr 1fr',
+        gap: 2,
+        background: C.l2,
+      },
+      folderCell: { position: 'relative', overflow: 'hidden', minWidth: 0, minHeight: 0, background: C.l2 },
+      folderCount: {
+        position: 'absolute',
+        top: 5,
+        left: 5,
+        fontSize: 9.5,
+        letterSpacing: 0.6,
+        padding: '2px 6px',
+        borderRadius: 2,
+        background: 'rgba(43,38,33,.78)',
+        color: '#FFFDF7',
+        fontWeight: 600,
+      },
+      crumbs: { display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 18, fontSize: 12.5, color: C.dim },
+      crumbLink: {
+        appearance: 'none',
+        border: 0,
+        background: 'transparent',
+        padding: 0,
+        color: C.dim,
+        font: 'inherit',
+        cursor: 'pointer',
+        borderBottom: `1px solid ${C.border}`,
+      },
       card: {
         display: 'flex',
         flexDirection: 'column',
@@ -770,6 +823,38 @@ window.__ModuleLoader__.load({
           { style: { fontSize: 10.5, letterSpacing: 0.8, color: C.dim } },
           book.finished ? T.finishedBadge : percent ? `${percent}%` : T.notStarted,
         ),
+      );
+    }
+
+    function FolderCard(props) {
+      const { folder, onOpen } = props;
+      const covers = folder.members.slice(0, 4);
+      const single = covers.length === 1;
+      return h(
+        'button',
+        { type: 'button', style: S.card, onClick: onOpen, title: folder.name },
+        h(
+          'div',
+          { style: S.folderBox },
+          h(
+            'div',
+            { style: { ...S.folderCollage, gridTemplateColumns: single ? '1fr' : '1fr 1fr', gridTemplateRows: single ? '1fr' : '1fr 1fr' } },
+            (single ? [0] : [0, 1, 2, 3]).map((slot) => {
+              const member = covers[slot];
+              const src = member ? coverUrl(member.cover) : '';
+              return h(
+                'div',
+                { key: slot, style: S.folderCell },
+                src
+                  ? h('img', { src, alt: '', loading: 'lazy', referrerPolicy: 'no-referrer', style: S.coverImg })
+                  : null,
+              );
+            }),
+          ),
+          h('span', { style: S.folderCount }, `${folder.members.length} 本`),
+        ),
+        h('div', { style: S.bookTitle }, folder.name),
+        h('div', { style: S.bookMeta }, T.folder),
       );
     }
 
@@ -1275,6 +1360,7 @@ window.__ModuleLoader__.load({
       const [filter, setFilter] = useState('all');
       const [query, setQuery] = useState('');
       const [store, setStore] = useState(null);
+      const [folder, setFolder] = useState(null);
 
       const load = useCallback(async () => {
         setState({ loading: true, error: '' });
@@ -1308,9 +1394,33 @@ window.__ModuleLoader__.load({
         load();
       }, [load]);
 
+      const folders = useMemo(() => {
+        const groups = (data && data.archive) || [];
+        const byId = new Map(((data && data.books) || []).map((book) => [book.bookId, book]));
+        return groups
+          .filter((group) => group && group.name && Array.isArray(group.bookIds) && group.bookIds.length)
+          .map((group) => ({
+            name: String(group.name),
+            members: group.bookIds.map((id) => byId.get(String(id))).filter(Boolean),
+          }))
+          .filter((entry) => entry.members.length > 0);
+      }, [data]);
+
       const books = useMemo(() => {
-        const list = (data && data.books) || [];
+        const all = (data && data.books) || [];
         const keyword = query.trim().toLowerCase();
+        const groups = (data && data.archive) || [];
+        let list = all;
+        if (folder) {
+          const group = groups.find((entry) => String(entry && entry.name) === folder);
+          const ids = new Set(((group && group.bookIds) || []).map(String));
+          list = all.filter((book) => ids.has(book.bookId));
+        } else if (!keyword) {
+          // The shelf payload already contains a folder's books, so hide them here to avoid listing twice.
+          const grouped = new Set();
+          for (const group of groups) for (const id of (group && group.bookIds) || []) grouped.add(String(id));
+          list = all.filter((book) => !grouped.has(book.bookId));
+        }
         return list
           .filter((book) => {
             if (!keyword) return true;
@@ -1323,7 +1433,7 @@ window.__ModuleLoader__.load({
             return true;
           })
           .sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0));
-      }, [data, filter, query]);
+      }, [data, filter, query, folder]);
 
       const openUrl = async (url) => {
         if (!url) {
@@ -1393,21 +1503,46 @@ window.__ModuleLoader__.load({
             ),
           ),
           h('div', { style: S.grow }),
-          h('div', { style: { fontSize: 11.5, color: C.dim, letterSpacing: 0.6 } }, data ? T.count((data.books || []).length) : ''),
+          h('div', { style: { fontSize: 11.5, color: C.dim, letterSpacing: 0.6 } }, T.count(books.length)),
         ),
       );
 
       let content;
       if (state.loading) content = h('div', { style: S.empty }, T.loading);
       else if (state.error) content = h('div', { style: S.empty }, `${T.error}：${state.error}`, h('div', { style: { marginTop: 10 } }, h(Btn, { onClick: load }, T.retry)));
-      else if (!books.length)
-        content = h(
-          'div',
-          { style: S.empty },
-          h('div', { style: { fontSize: 14, fontWeight: 600 } }, T.empty),
-          h('div', { style: { marginTop: 6, fontSize: 12.5 } }, T.emptyHint),
-        );
-      else content = h('div', { style: S.grid }, books.map((book) => h(BookCard, { key: book.bookId, book, onOpen })));
+      else {
+        const showFolders = !folder && !query.trim() && folders.length > 0;
+        const crumbs = folder
+          ? h(
+              'div',
+              { style: S.crumbs },
+              h('button', { type: 'button', style: S.crumbLink, onClick: () => setFolder(null) }, T.backShelf),
+              h('span', null, '/'),
+              h('span', { style: { color: C.text, fontWeight: 600 } }, folder),
+            )
+          : null;
+        const folderSection = showFolders
+          ? h(
+              'div',
+              { style: { marginBottom: 26 } },
+              h('div', { style: { ...S.sectionTitle, marginBottom: 14 } }, T.folder),
+              h(
+                'div',
+                { style: S.grid },
+                folders.map((entry) => h(FolderCard, { key: entry.name, folder: entry, onOpen: () => setFolder(entry.name) })),
+              ),
+            )
+          : null;
+        const bookGrid = books.length
+          ? h('div', { style: S.grid }, books.map((book) => h(BookCard, { key: book.bookId, book, onOpen })))
+          : h(
+              'div',
+              { style: { ...S.empty, paddingTop: folder ? 6 : 40 } },
+              h('div', { style: { fontSize: 14, fontWeight: 600 } }, folder ? T.folderEmpty : T.empty),
+              folder ? null : h('div', { style: { marginTop: 6, fontSize: 12.5 } }, T.emptyHint),
+            );
+        content = h('div', null, crumbs, folderSection, bookGrid);
+      }
 
       return h(
         'div',

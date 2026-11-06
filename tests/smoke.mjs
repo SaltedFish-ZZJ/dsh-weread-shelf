@@ -257,6 +257,7 @@ const shelfPayload = {
     },
   ],
   albums: [],
+  archive: [{ name: '神经漫游者三部曲', bookIds: ['CB_x'] }],
   total: 2,
 }
 
@@ -496,6 +497,29 @@ for (const [name, pass] of statsChecks) {
 await snap('stats')
 await click('书架')
 await snap('shelf')
+const shelfText = textOf(tree)
+const folderChecks = [
+  ['书单分组可见', shelfText.includes('书单')],
+  ['文件夹卡可见', shelfText.includes('神经漫游者三部曲')],
+  ['文件夹内书籍不重复', !shelfText.includes('第一性原理')],
+]
+for (const [name, pass] of folderChecks) {
+  console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+  if (!pass) errors.push({ path: 'shelf', error: new Error(`${name}: ${shelfText.slice(0, 600)}`) })
+}
+if (await click('神经漫游者三部曲')) {
+  const folderText = textOf(tree)
+  const insideChecks = [
+    ['进入文件夹页', folderText.includes('第一性原理')],
+    ['面包屑可返回', folderText.includes('书架/') || folderText.includes('书架 /')],
+  ]
+  for (const [name, pass] of insideChecks) {
+    console.log(pass ? `  ✅ ${name}` : `  ❌ ${name}`)
+    if (!pass) errors.push({ path: 'folder', error: new Error(`${name}: ${folderText.slice(0, 400)}`) })
+  }
+  await snap('folder')
+  await click('← 书架')
+}
 const opened = collect(tree).find((node) => node.props && typeof node.props.onClick === 'function' && textOf(node).includes('置身事内'))
 if (opened) {
   try {
