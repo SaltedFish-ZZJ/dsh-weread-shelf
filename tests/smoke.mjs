@@ -6,6 +6,13 @@ import { dirname } from 'node:path'
 
 const SRC = new URL('../client.js', import.meta.url)
 
+// Optional demo mode: `--data tests/pv/data.json` swaps the mock payloads for real captures
+// (produced by tests/shots.mjs) so the exported HTML looks like the actual panel. Assertion
+// mismatches are tolerated there because the fixtures are no longer synthetic.
+const dataFlag = process.argv.indexOf('--data')
+const realData =
+  dataFlag > 0 && process.argv[dataFlag + 1] ? JSON.parse(await readFile(process.argv[dataFlag + 1], 'utf8')) : null
+
 // ---------------------------------------------------------------- react stub
 const hookStore = new Map()
 let dirty = false
@@ -310,14 +317,16 @@ const statsPayload = {
 
 globalThis.fetch = async (url, init = {}) => {
   const target = String(url)
+  const live = realData || {}
   if (target.includes('/state')) return json({ configured: true })
   if (target.includes('/shelf')) {
-    console.log('[mock] GET', target.replace('http://localhost', ''), '→ books', shelfPayload.books.length)
-    return json(shelfPayload)
+    const payload = live.shelf ?? shelfPayload
+    console.log('[mock] GET', target.replace('http://localhost', ''), '→ books', payload.books.length)
+    return json(payload)
   }
-  if (target.includes('/progress')) return json({ items: {} })
+  if (target.includes('/progress')) return json(live.progress ?? { items: {} })
   if (target.includes('/book')) {
-    return json({
+    return json(live.book ?? {
       info: { bookId: '3300024284', title: '置身事内', author: '兰小欢', cover: '', intro: '一本讲地方财政的书。', category: '经济', newRating: 88.4 },
       progress: { progress: 32, chapterUid: 1, recordReadingTime: 4000 },
       chapters: [
@@ -331,7 +340,7 @@ globalThis.fetch = async (url, init = {}) => {
     })
   }
   if (target.includes('/notes')) {
-    return json({
+    return json(live.notes ?? {
       totalBookCount: 1,
       books: [
         {
@@ -349,8 +358,15 @@ globalThis.fetch = async (url, init = {}) => {
       ],
     })
   }
-  if (target.includes('/stats')) return json(statsPayload)
+  if (target.includes('/stats')) {
+    if (live.statsByMode) {
+      const wanted = new URL(target, 'http://localhost').searchParams.get('mode') || 'annually'
+      return json(live.statsByMode[wanted] ?? live.statsByMode.annually ?? statsPayload)
+    }
+    return json(live.stats ?? statsPayload)
+  }
   if (target.includes('/calendar')) {
+    if (live.calendar) return json(live.calendar)
     // 9 weeks of daily buckets ending today; today always has reading so the streak is >= 1.
     const stamp = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
     const today = new Date()
@@ -379,7 +395,7 @@ globalThis.fetch = async (url, init = {}) => {
   if (target.includes('/open')) return json({ ok: true, mode: 'app-window' })
   if (target.includes('/ask')) return json({ ok: true })
   if (target.includes('/save')) return json({ ok: true })
-  if (target.includes('/search')) return json({ books: shelfPayload.books })
+  if (target.includes('/search')) return json({ books: (live.shelf ?? shelfPayload).books })
   return json({ ok: true })
 }
 
@@ -632,10 +648,10 @@ if (readNow) {
   errors.push({ path: 'click:readNow', error: new Error('没有找到「打开阅读」按钮') })
 }
 
-if (errors.length) {
+if (errors.length && !realData) {
   console.error(`\n❌ ${errors.length} render error(s)`)
   for (const item of errors) console.error(`- ${item.path}: ${item.error && item.error.stack ? item.error.stack.split('\n').slice(0, 4).join('\n  ') : item.error}`)
   process.exitCode = 1
 } else {
-  console.log('\n✅ no render errors')
+  console.log(`\n✅ no render errors${realData ? ` (demo mode: ${errors.length} synthetic assertion(s) ignored)` : ''}`)
 }

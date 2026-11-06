@@ -68,6 +68,7 @@ window.__ModuleLoader__.load({
         noData: '还没有数据',
         emptyPeriod: '这个周期还没有阅读记录，换到「今年」或「总计」看看。',
         byWeekday: '一周里哪天读',
+        byOverall: '· 按总计',
         noteDensity: '笔记密度',
         calendar: '阅读日历',
         calendarHint: '过去一年，每一格是一天',
@@ -213,6 +214,7 @@ window.__ModuleLoader__.load({
         noData: 'No data yet',
         emptyPeriod: 'No reading in this period — try This year or All time.',
         byWeekday: 'Which day of the week',
+        byOverall: '· all time',
         noteDensity: 'Note density',
         calendar: 'Reading calendar',
         calendarHint: 'Every day of the past year',
@@ -358,6 +360,7 @@ window.__ModuleLoader__.load({
       },
       brandSub: { fontSize: 11, color: C.dim, letterSpacing: 0.8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
       grow: { flex: 1, minWidth: 0 },
+      hint: { marginLeft: 8, fontSize: 11, color: C.dim, letterSpacing: 0.3 },
       tabs: { display: 'flex', gap: 18, padding: 0, background: 'transparent', borderRadius: 0, flex: 'none' },
       tab: {
         appearance: 'none',
@@ -701,7 +704,7 @@ window.__ModuleLoader__.load({
     };
 
     // ------------------------------------------------------------ helpers
-    const coverUrl = (url) => (url ? `${API}/cover?u=${encodeURIComponent(url)}` : '');
+    const coverUrl = (url) => (url ? (/^data:/i.test(url) ? url : `${API}/cover?u=${encodeURIComponent(url)}`) : '');
 
     // Views listen here so one 401 anywhere can reopen the connect card once.
     const authHooks = new Set();
@@ -1967,6 +1970,21 @@ const now = new Date();
         loadCalendar();
       }, [loadCalendar]);
 
+      // 时段 / 分类这两张是「习惯」图：单周、单月常常整块是空的，看趋势就断了。
+      // 本期没有数据时退回总计口径，并在标题旁标注来源。
+      const [habit, setHabit] = useState(null);
+      useEffect(() => {
+        let alive = true;
+        api('/stats?mode=overall')
+          .then((value) => {
+            if (alive) setHabit(value);
+          })
+          .catch(() => {});
+        return () => {
+          alive = false;
+        };
+      }, []);
+
       // The wall wants every shelf book's percent; shelf already carries most of them.
       useEffect(() => {
         let alive = true;
@@ -2012,6 +2030,20 @@ const now = new Date();
         { label: T.daily, value: data ? human(data.dayAverageSeconds) : '—' },
         { label: T.streak, value: `${streak} ${T.daysUnit}` },
       ];
+
+      const habitHours = (() => {
+        const own = (data && data.hours) || [];
+        if (own.some((value) => value > 0)) return { hours: own, note: '' };
+        const fallback = (habit && habit.hours) || [];
+        return { hours: fallback, note: fallback.some((value) => value > 0) ? T.byOverall : '' };
+      })();
+
+      const habitCategories = (() => {
+        const own = (data && data.categories) || [];
+        if (own.length) return { categories: own, note: '' };
+        const fallback = (habit && habit.categories) || [];
+        return { categories: fallback, note: fallback.length ? T.byOverall : '' };
+      })();
 
       const points = useMemo(() => {
         if (!data || !data.buckets) return [];
@@ -2130,14 +2162,14 @@ const now = new Date();
                 h(
                   'div',
                   { style: S.panelCard },
-                  h('div', { style: { ...S.sectionTitle, marginBottom: 6 } }, T.byHour),
-                  h(HourClock, { hours: data ? data.hours : [] }),
+                  h('div', { style: { ...S.sectionTitle, marginBottom: 6 } }, T.byHour, habitHours.note ? h('span', { style: S.hint }, habitHours.note) : null),
+                  h(HourClock, { hours: habitHours.hours }),
                 ),
                 h(
                   'div',
                   { style: S.panelCard },
-                  h('div', { style: { ...S.sectionTitle, marginBottom: 6 } }, T.byCategory),
-                  h(CategoryDonut, { categories: data ? data.categories : [] }),
+                  h('div', { style: { ...S.sectionTitle, marginBottom: 6 } }, T.byCategory, habitCategories.note ? h('span', { style: S.hint }, habitCategories.note) : null),
+                  h(CategoryDonut, { categories: habitCategories.categories }),
                 ),
               ),
               h(
